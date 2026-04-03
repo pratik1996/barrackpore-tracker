@@ -513,6 +513,27 @@
         }
 
         /* ═══ MOBILE overrides ═══ */
+        /* ═══ IMAGE THUMBNAILS ═══ */
+        .img-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .img-thumb-wrap { position: relative; }
+        .img-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 2px solid var(--border); display: block; }
+        .img-thumb-wrap button {
+            position: absolute; top: -6px; right: -6px;
+            background: var(--danger); color: white; border: none;
+            border-radius: 50%; width: 22px; height: 22px;
+            font-size: 12px; cursor: pointer; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .img-upload-label {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px; border: 2px dashed var(--border);
+            border-radius: 10px; cursor: pointer; color: var(--muted);
+            font-size: 0.9rem; font-weight: 500; transition: border-color 0.2s;
+            background: #fafbfc;
+        }
+        .img-upload-label:hover { border-color: var(--primary); color: var(--primary); }
+        .img-upload-label input { display: none; }
+
         @media (max-width: 640px) {
             .top-nav { display: none; }
             .bottom-nav { display: block; }
@@ -597,7 +618,10 @@
 
     <!-- HISTORY -->
     <div id="tab-history" class="tab-content">
-        <div class="page-header"><h2>History</h2></div>
+        <div class="page-header">
+            <h2>History</h2>
+            <button class="btn btn-success btn-sm" onclick="downloadCSV()">⬇️ Download CSV</button>
+        </div>
         <div class="page-subtext">Tap any date to view full details.</div>
         <div class="history-list" id="historyList"></div>
     </div>
@@ -767,11 +791,14 @@ function renderDashboard() {
 
     dashUnsub = db.collection(COLLECTION).doc(today).onSnapshot(doc => {
         setConn(true);
-        paintDashboard(doc.exists ? doc.data() : {});
+        // Merge Firebase data with local data (Firebase wins)
+        const fbData = doc.exists ? doc.data() : {};
+        const localData = localGet(today);
+        paintDashboard({ ...localData, ...fbData });
     }, () => {
         setConn(false);
-        document.getElementById('sectionGrid').innerHTML =
-            `<div class="empty-state"><div class="icon">⚠️</div><p>No connection. Check your internet.</p></div>`;
+        // Firebase failed — paint from localStorage
+        paintDashboard(localGet(today));
     });
 }
 
@@ -883,7 +910,7 @@ function renderSectionTabs() {
             onclick="switchSection('${s}')">${s}</button>`;
     }).join('');
 }
-function switchSection(s) { currentSection = s; renderSectionTabs(); renderForm(); }
+function switchSection(s) { currentSection = s; renderSectionTabs(); renderForm(); renderThumbnails(getImages(entryDate, currentSection)); }
 
 function renderForm() {
     const sd  = currentDayData[currentSection] || {};
@@ -925,6 +952,16 @@ function renderForm() {
             <label>⚠️ Issues / Remarks</label>
             <textarea id="f-issues"
                 placeholder="Delays, safety concerns, equipment problems…">${sd.issues||''}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>📸 Site Photos (up to 5)</label>
+            <div class="img-grid" id="img-grid"></div>
+            <label class="img-upload-label">
+                📷 Tap to Add Photos
+                <input type="file" accept="image/*" multiple capture="environment"
+                    onchange="handleImageUpload(this)">
+            </label>
         </div>
 
         <div class="form-actions">
@@ -1000,45 +1037,62 @@ function clearForm() {
 // ═══════════════════════════════════════════════════════════
 //  HISTORY
 // ═══════════════════════════════════════════════════════════
+function buildHistoryHTML(records) {
+    if (!records.length) {
+        document.getElementById('historyList').innerHTML =
+            `<div class="empty-state"><div class="icon">📋</div><p>No records yet. Start by logging a daily entry.</p></div>`;
+        return;
+    }
+    document.getElementById('historyList').innerHTML = records.map(({id:dk, data:dd}) => {
+        const logged = Object.keys(dd).length;
+        let w=0, iss=0, ps=0, pc=0;
+        Object.values(dd).forEach(sd => {
+            w += parseInt(sd.workers||0);
+            if (sd.issues && sd.issues.trim()) iss++;
+            if (sd.progress !== undefined) { ps += parseInt(sd.progress); pc++; }
+        });
+        const avg = pc ? Math.round(ps/pc) : 0;
+        return `
+            <div class="history-item" onclick="showDayDetail('${dk}')">
+                <div>
+                    <div class="history-date">${fmtDate(dk)}</div>
+                    <div class="history-meta">${logged}/${SECTIONS.length} sections</div>
+                </div>
+                <div class="history-summary">
+                    <div class="h-stat"><div class="num">${w}</div><div class="lbl">Workers</div></div>
+                    <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Progress</div></div>
+                    <div class="h-stat">
+                        <div class="num" style="color:${iss>0?'#e74c3c':'#27ae60'}">${iss}</div>
+                        <div class="lbl">Issues</div>
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
 async function renderHistory() {
     document.getElementById('historyList').innerHTML = loadingHTML();
+
+    // Show local data immediately
+    const localData = localGetAll();
+    const localRecords = Object.keys(localData).sort().reverse()
+        .map(id => ({ id, data: localData[id] }));
+    buildHistoryHTML(localRecords);
+
+    // Then try to enrich with Firebase data
     try {
-        const records = await getAllDates();
+        const fbRecords = await getAllDates();
         setConn(true);
-        if (!records.length) {
-            document.getElementById('historyList').innerHTML =
-                `<div class="empty-state"><div class="icon">📋</div><p>No records yet.</p></div>`;
-            return;
-        }
-        document.getElementById('historyList').innerHTML = records.map(({id:dk, data:dd}) => {
-            const logged = Object.keys(dd).length;
-            let w=0, iss=0, ps=0, pc=0;
-            Object.values(dd).forEach(sd => {
-                w   += parseInt(sd.workers||0);
-                if (sd.issues && sd.issues.trim()) iss++;
-                if (sd.progress !== undefined) { ps += parseInt(sd.progress); pc++; }
-            });
-            const avg = pc ? Math.round(ps/pc) : 0;
-            return `
-                <div class="history-item" onclick="showDayDetail('${dk}')">
-                    <div>
-                        <div class="history-date">${fmtDate(dk)}</div>
-                        <div class="history-meta">${logged}/${SECTIONS.length} sections</div>
-                    </div>
-                    <div class="history-summary">
-                        <div class="h-stat"><div class="num">${w}</div><div class="lbl">Workers</div></div>
-                        <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Progress</div></div>
-                        <div class="h-stat">
-                            <div class="num" style="color:${iss>0?'#e74c3c':'#27ae60'}">${iss}</div>
-                            <div class="lbl">Issues</div>
-                        </div>
-                    </div>
-                </div>`;
-        }).join('');
+        // Merge: combine Firebase dates + local-only dates
+        const fbKeys = new Set(fbRecords.map(r => r.id));
+        const localOnly = localRecords.filter(r => !fbKeys.has(r.id));
+        const merged = [...fbRecords, ...localOnly]
+            .sort((a,b) => b.id.localeCompare(a.id));
+        buildHistoryHTML(merged);
     } catch(e) {
         setConn(false);
-        document.getElementById('historyList').innerHTML =
-            `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load. Check connection.</p></div>`;
+        // Already showing local data above — just indicate offline
+        if (localRecords.length) showToast('⚠️ Showing local records (Firebase offline)', true);
     }
 }
 
@@ -1051,7 +1105,9 @@ async function showDayDetail(dateKey) {
     document.getElementById('modalActions').innerHTML = '';
     document.getElementById('modalOverlay').classList.add('open');
 
-    const dd = await getDayData(dateKey);
+    let dd;
+    try { dd = await getDayData(dateKey); }
+    catch(e) { dd = localGet(dateKey); }
     let html = '';
     SECTIONS.forEach(s => {
         const sd = dd[s]; if (!sd) return;
@@ -1081,6 +1137,17 @@ async function showDayDetail(dateKey) {
                         </tr>
                     </tbody>
                 </table>
+                ${(()=>{
+                    const imgs = getImages(dateKey, s);
+                    if (!imgs.length) return '';
+                    return `<div style="margin-top:10px">
+                        <div style="font-size:0.82rem;color:#888;margin-bottom:6px">📸 Photos (${imgs.length})</div>
+                        <div class="img-grid">${imgs.map(src=>`
+                            <div class="img-thumb-wrap">
+                                <img class="img-thumb" src="${src}" onclick="viewImage('${encodeURIComponent(src)}')">
+                            </div>`).join('')}
+                        </div></div>`;
+                })()}
             </div>`;
     });
     if (!html) html = `<div class="empty-state"><p>No data for this date.</p></div>`;
@@ -1103,6 +1170,102 @@ async function confirmDelete(dk) {
         closeModal(); renderHistory();
         showToast(`Deleted ${fmtDate(dk)}`);
     } catch(e) { showToast('Delete failed', true); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DOWNLOAD CSV
+// ═══════════════════════════════════════════════════════════
+function downloadCSV() {
+    // Merge local + Firebase cached data
+    const localData = localGetAll();
+    if (!Object.keys(localData).length) {
+        showToast('No data to download yet', true);
+        return;
+    }
+    const BOM = '\uFEFF'; // UTF-8 BOM for Excel
+    let csv = BOM + 'Date,Section,Workers,Progress %,Progress Notes,Materials Used,Issues\n';
+    const esc = v => `"${(v||'').toString().replace(/"/g,'""')}"`;
+    Object.keys(localData).sort().reverse().forEach(dk => {
+        SECTIONS.forEach(s => {
+            const sd = localData[dk][s]; if (!sd) return;
+            csv += [fmtDate(dk), s, sd.workers||0, sd.progress||0,
+                esc(sd.progressNote), esc(sd.materials), esc(sd.issues)].join(',') + '\n';
+        });
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `barrackpore-${todayKey()}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    showToast('✅ CSV downloaded — open in Excel');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  IMAGE HELPERS
+// ═══════════════════════════════════════════════════════════
+function imgKey(dk, s) { return `bpore_img_${dk}_${s}`; }
+function getImages(dk, s) {
+    try { return JSON.parse(localStorage.getItem(imgKey(dk,s)) || '[]'); } catch(e) { return []; }
+}
+function saveImages(dk, s, imgs) {
+    localStorage.setItem(imgKey(dk,s), JSON.stringify(imgs));
+}
+
+function compressImage(file, maxW=900) {
+    return new Promise(resolve => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            const scale = Math.min(1, maxW / img.width);
+            const c = document.createElement('canvas');
+            c.width  = img.width  * scale;
+            c.height = img.height * scale;
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL('image/jpeg', 0.72));
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
+    });
+}
+
+async function handleImageUpload(input) {
+    const files = Array.from(input.files).slice(0, 5);
+    if (!files.length) return;
+    showToast('Compressing photos…');
+    const compressed = await Promise.all(files.map(f => compressImage(f)));
+    const existing   = getImages(entryDate, currentSection);
+    const all        = [...existing, ...compressed].slice(-5); // max 5 photos
+    saveImages(entryDate, currentSection, all);
+    renderThumbnails(all);
+    input.value = '';
+    showToast(`✅ ${compressed.length} photo(s) added`);
+}
+
+function removeImage(idx) {
+    const imgs = getImages(entryDate, currentSection);
+    imgs.splice(idx, 1);
+    saveImages(entryDate, currentSection, imgs);
+    renderThumbnails(imgs);
+}
+
+function renderThumbnails(imgs) {
+    const el = document.getElementById('img-grid');
+    if (!el) return;
+    el.innerHTML = imgs.map((src, i) => `
+        <div class="img-thumb-wrap">
+            <img class="img-thumb" src="${src}" onclick="viewImage('${encodeURIComponent(src)}')">
+            <button onclick="removeImage(${i})">✕</button>
+        </div>`).join('');
+}
+
+function viewImage(encoded) {
+    const src = decodeURIComponent(encoded);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+    overlay.innerHTML = `<img src="${src}" style="max-width:95vw;max-height:90vh;border-radius:8px;object-fit:contain">`;
+    overlay.onclick = () => document.body.removeChild(overlay);
+    document.body.appendChild(overlay);
 }
 
 // ═══════════════════════════════════════════════════════════
