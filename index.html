@@ -812,16 +812,32 @@ async function renderLogEntry() {
     await loadEntryDate();
 }
 async function loadEntryDate() {
-    document.getElementById('sectionForm').innerHTML = loadingHTML();
-    try {
-        currentDayData = await getDayData(entryDate);
-        setConn(true);
-    } catch(e) {
-        setConn(false);
-        currentDayData = {};
-    }
+    // Show the form IMMEDIATELY — never block on Firebase
+    currentDayData = {};
     renderSectionTabs();
     renderForm();
+
+    // Load Firebase data in background with a 6s timeout
+    try {
+        const data = await Promise.race([
+            getDayData(entryDate),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+        ]);
+        setConn(true);
+        // Only repopulate form if the user hasn't typed anything yet
+        const formIsEmpty =
+            !document.getElementById('f-workers')?.value &&
+            !document.getElementById('f-progressNote')?.value &&
+            !document.getElementById('f-materials')?.value &&
+            !document.getElementById('f-issues')?.value;
+        currentDayData = data;
+        renderSectionTabs(); // update ✓ badges
+        if (formIsEmpty) renderForm(); // repopulate with saved data
+    } catch(e) {
+        setConn(false);
+        // Form is already showing — just warn quietly
+        showToast('⚠️ Offline mode — data will sync when connected', true);
+    }
 }
 function renderSectionTabs() {
     document.getElementById('sectionTabs').innerHTML = SECTIONS.map(s => {
