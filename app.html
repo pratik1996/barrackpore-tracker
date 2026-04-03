@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchasing Workflow</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --surface2: #222640;
+    --accent: #f97316;
+    --accent-dim: rgba(249,115,22,0.15);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #2d3047;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --warning: #eab308;
+    --info: #3b82f6;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* NAV */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 4px; padding: 0 20px; position: sticky; top: 0; z-index: 100; }
+  .nav-brand { font-size: 16px; font-weight: 700; color: var(--accent); padding: 14px 16px 14px 0; border-right: 1px solid var(--border); margin-right: 8px; white-space: nowrap; }
+  .nav-brand span { color: var(--text); }
+  nav button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 16px 16px; font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; transition: all .2s; white-space: nowrap; }
+  nav button:hover { color: var(--text); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* LAYOUT */
+  main { max-width: 1300px; margin: 0 auto; padding: 24px 20px; }
+  section { display: none; }
+  section.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+  .card-value { font-size: 28px; font-weight: 700; color: var(--text); }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+  /* CHARTS GRID */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media(max-width: 800px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-container { position: relative; height: 280px; }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .form-group input, .form-group select, .form-group textarea {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 14px; padding: 10px 12px; outline: none; transition: border .2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .form-group input.error, .form-group select.error { border-color: var(--danger); }
+  .form-group .err-msg { color: var(--danger); font-size: 11px; }
+  .form-group select option { background: var(--surface2); }
+
+  /* BUTTONS */
+  .btn { border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; padding: 10px 20px; transition: opacity .2s, transform .1s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 6px 12px; font-size: 12px; }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-edit { background: transparent; color: var(--info); border: 1px solid var(--info); padding: 6px 12px; font-size: 12px; }
+  .btn-edit:hover { background: var(--info); color: #fff; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* DROP ZONE */
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px; text-align: center; cursor: pointer; transition: all .2s; background: var(--surface2); }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: var(--accent-dim); }
+  .drop-zone .dz-icon { font-size: 36px; margin-bottom: 8px; }
+  .drop-zone p { color: var(--muted); font-size: 13px; }
+  .drop-zone strong { color: var(--accent); }
+  #file-input { display: none; }
+
+  /* PREVIEW */
+  .preview-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; text-align: center; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .preview-box img { max-width: 100%; max-height: 200px; border-radius: 6px; object-fit: contain; }
+  .preview-box .pdf-icon { font-size: 48px; }
+  .preview-box p { font-size: 12px; color: var(--muted); word-break: break-all; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--surface2); }
+  th { padding: 12px 14px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  th .sort-icon { margin-left: 4px; opacity: .4; }
+  th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+  td { padding: 11px 14px; border-top: 1px solid var(--border); font-size: 13px; white-space: nowrap; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .actions-cell { display: flex; gap: 6px; }
+
+  /* BADGES */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-blue { background: rgba(59,130,246,.2); color: #93c5fd; }
+  .badge-green { background: rgba(34,197,94,.15); color: #86efac; }
+  .badge-orange { background: rgba(249,115,22,.15); color: #fdba74; }
+  .badge-purple { background: rgba(168,85,247,.15); color: #d8b4fe; }
+  .badge-pink { background: rgba(236,72,153,.15); color: #f9a8d4; }
+  .badge-cyan { background: rgba(6,182,212,.15); color: #67e8f9; }
+
+  /* FILTERS */
+  .filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+  .filter-row .form-group { flex: 1; min-width: 140px; }
+  .filter-row input, .filter-row select { width: 100%; }
+
+  /* PAGINATION */
+  .pagination { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .pagination span { color: var(--muted); font-size: 12px; }
+  .page-info { min-width: 120px; text-align: center; }
+
+  /* SECTION HEADER */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .section-header h2 { font-size: 18px; font-weight: 700; }
+  .section-header p { color: var(--muted); font-size: 13px; }
+
+  /* ALERTS */
+  .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; display: none; }
+  .alert.show { display: block; }
+  .alert-success { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+  .alert-error { background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3); color: var(--danger); }
+
+  /* REGIONAL TABLE */
+  .regional-table th, .regional-table td { text-align: center; }
+  .regional-table td.material-col { text-align: left; font-weight: 600; }
+  .price-high { color: #f87171; }
+  .price-low { color: #86efac; }
+  .price-mid { color: var(--text); }
+
+  /* MOM TABLE */
+  .mom-table td.up { color: #f87171; font-weight: 600; }
+  .mom-table td.down { color: #86efac; font-weight: 600; }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+
+  /* MODAL */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-backdrop.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 500px; width: 90%; }
+  .modal h3 { margin-bottom: 12px; }
+  .modal p { color: var(--muted); margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* TRACKER */
+  .tracker-controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px; }
+  .tracker-controls .form-group { flex: 1; min-width: 180px; }
+  .region-checks { display: flex; gap: 12px; flex-wrap: wrap; }
+  .region-checks label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+  .region-checks input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+  .full-width { grid-column: 1 / -1; }
+  .mt-16 { margin-top: 16px; }
+  .text-right { text-align: right; }
+  .text-muted { color: var(--muted); }
+  .font-mono { font-family: 'Cascadia Code', 'Consolas', monospace; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">Purchase<span>Track</span></div>
+  <button class="active" data-tab="dashboard">Dashboard</button>
+  <button data-tab="add">Add Purchase</button>
+  <button data-tab="records">Records</button>
+  <button data-tab="tracker">Price Tracker</button>
+</nav>
+
+<main>
+
+  <!-- ===== DASHBOARD ===== -->
+  <section id="tab-dashboard" class="active">
+    <div class="section-header">
+      <div><h2>Dashboard</h2><p>Overview of purchasing activity</p></div>
+      <div id="dash-period" style="color:var(--muted);font-size:13px;"></div>
+    </div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+    <div class="charts-grid">
+      <div class="card">
+        <div class="card-title">Monthly Expenditure</div>
+        <div class="chart-container"><canvas id="chart-monthly"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Material Price Trend (Avg Unit Price / Month)</div>
+        <div class="chart-container"><canvas id="chart-trend"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">Regional Average Unit Price</div>
+      <div id="regional-table-wrap"></div>
+    </div>
+  </section>
+
+  <!-- ===== ADD PURCHASE ===== -->
+  <section id="tab-add">
+    <div class="section-header">
+      <div><h2 id="form-title">Add Purchase</h2><p>Enter bill details manually</p></div>
+      <button class="btn btn-secondary" id="btn-cancel-edit" style="display:none;" onclick="cancelEdit()">✕ Cancel Edit</button>
+    </div>
+    <div id="alert-form" class="alert"></div>
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+      <div class="card">
+        <form id="purchase-form" novalidate>
+          <input type="hidden" id="edit-id">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Material Name *</label>
+              <input type="text" id="f-material" placeholder="e.g. Steel Rods, Cement...">
+              <span class="err-msg" id="e-material"></span>
+            </div>
+            <div class="form-group">
+              <label>Region *</label>
+              <select id="f-region">
+                <option value="">Select region...</option>
+                <option>North</option><option>South</option><option>East</option>
+                <option>West</option><option>Central</option><option>Other</option>
+              </select>
+              <span class="err-msg" id="e-region"></span>
+            </div>
+            <div class="form-group">
+              <label>Date *</label>
+              <input type="date" id="f-date">
+              <span class="err-msg" id="e-date"></span>
+            </div>
+            <div class="form-group">
+              <label>Unit</label>
+              <select id="f-unit">
+                <option value="kg">kg</option><option value="g">g</option>
+                <option value="ton">ton</option><option value="L">L</option>
+                <option value="mL">mL</option><option value="m">m</option>
+                <option value="m²">m²</option><option value="m³">m³</option>
+                <option value="pcs">pcs</option><option value="box">box</option>
+                <option value="set">set</option><option value="other">other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Quantity *</label>
+              <input type="number" id="f-qty" placeholder="0" min="0" step="any">
+              <span class="err-msg" id="e-qty"></span>
+            </div>
+            <div class="form-group">
+              <label>Unit Price (₹) *</label>
+              <input type="number" id="f-unit-price" placeholder="0.00" min="0" step="any">
+              <span class="err-msg" id="e-unit-price"></span>
+            </div>
+            <div class="form-group">
+              <label>Total Amount (₹) *</label>
+              <input type="number" id="f-total" placeholder="Auto-calculated" step="any">
+              <span class="err-msg" id="e-total"></span>
+            </div>
+            <div class="form-group">
+              <label>Vendor / Supplier</label>
+              <input type="text" id="f-vendor" placeholder="Vendor name (optional)">
+            </div>
+            <div class="form-group full-width">
+              <label>Notes</label>
+              <textarea id="f-notes" rows="2" placeholder="Any additional notes..."></textarea>
+            </div>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:10px;">
+            <button type="submit" class="btn btn-primary" id="btn-submit">Save Purchase</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">Clear</button>
+          </div>
+        </form>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:12px;">Bill / Invoice Upload</div>
+          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <div class="dz-icon">📄</div>
+            <p><strong>Click or drag</strong> to upload</p>
+            <p>PDF, PNG, JPG, WEBP</p>
+          </div>
+          <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp">
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px;">Preview</div>
+          <div class="preview-box" id="preview-box">
+            <span style="color:var(--muted);font-size:13px;">No file selected</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm mt-16" id="btn-clear-file" style="display:none;" onclick="clearFile()">Remove File</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== RECORDS ===== -->
+  <section id="tab-records">
+    <div class="section-header">
+      <div><h2>Records</h2><p id="records-count">All purchase records</p></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="exportCSV()">⬇ Export CSV</button>
+        <button class="btn btn-primary" onclick="switchTab('add')">+ Add Purchase</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="filter-row">
+        <div class="form-group" style="flex:2;min-width:200px;">
+          <label>Search Material / Vendor</label>
+          <input type="text" id="filter-search" placeholder="Type to search...">
+        </div>
+        <div class="form-group">
+          <label>Region</label>
+          <select id="filter-region">
+            <option value="">All Regions</option>
+            <option>North</option><option>South</option><option>East</option>
+            <option>West</option><option>Central</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>From Date</label>
+          <input type="date" id="filter-from">
+        </div>
+        <div class="form-group">
+          <label>To Date</label>
+          <input type="date" id="filter-to">
+        </div>
+        <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-col="date" class="sorted">Date <span class="sort-icon">↓</span></th>
+            <th data-col="materialName">Material <span class="sort-icon">↕</span></th>
+            <th data-col="region">Region <span class="sort-icon">↕</span></th>
+            <th data-col="quantity" style="text-align:right;">Qty <span class="sort-icon">↕</span></th>
+            <th data-col="unitPrice" style="text-align:right;">Unit Price <span class="sort-icon">↕</span></th>
+            <th data-col="totalAmount" style="text-align:right;">Total <span class="sort-icon">↕</span></th>
+            <th>Vendor</th>
+            <th>Invoice</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody"></tbody>
+      </table>
+    </div>
+    <div id="records-empty" class="empty-state" style="display:none;">
+      <div class="icon">📋</div>
+      <h3>No records found</h3>
+      <p>Add your first purchase or adjust your filters.</p>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <!-- ===== PRICE TRACKER ===== -->
+  <section id="tab-tracker">
+    <div class="section-header">
+      <div><h2>Price Tracker</h2><p>Track unit price changes across regions and time</p></div>
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="tracker-controls">
+        <div class="form-group">
+          <label>Material</label>
+          <select id="tracker-material"><option value="">Select material...</option></select>
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>Regions</label>
+          <div class="region-checks" id="tracker-regions"></div>
+        </div>
+        <button class="btn btn-primary" onclick="renderTracker()">Show Chart</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-title" style="margin-bottom:16px;">Unit Price Over Time</div>
+      <div class="chart-container" style="height:320px;"><canvas id="chart-tracker"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">Month-over-Month Price Change</div>
+      <div id="mom-table-wrap">
+        <div class="empty-state"><div class="icon">📊</div><h3>Select a material above to view MoM data</h3></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal">
+    <h3>Confirm Delete</h3>
+    <p id="confirm-msg">Are you sure you want to delete this record?</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DB LAYER
+// ============================================================
+const DB = {
+  KEY: 'purchasetrack_v1',
+  load() { try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch(e) { return []; } },
+  save(records) { localStorage.setItem(this.KEY, JSON.stringify(records)); },
+  add(record) {
+    const records = this.load();
+    record.id = crypto.randomUUID();
+    record.createdAt = new Date().toISOString();
+    records.push(record);
+    this.save(records);
+    return record;
+  },
+  update(id, updates) {
+    const records = this.load();
+    const idx = records.findIndex(r => r.id === id);
+    if (idx === -1) return null;
+    records[idx] = { ...records[idx], ...updates, updatedAt: new Date().toISOString() };
+    this.save(records);
+    return records[idx];
+  },
+  delete(id) {
+    const records = this.load().filter(r => r.id !== id);
+    this.save(records);
+  }
+};
+
+// ============================================================
+// DATA HELPERS
+// ============================================================
+function toYYYYMM(dateStr) { return dateStr ? dateStr.slice(0, 7) : ''; }
+function fmtMonth(yyyymm) {
+  if (!yyyymm) return '';
+  const [y, m] = yyyymm.split('-');
+  return new Date(+y, +m - 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+}
+function fmtCurrency(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtNum(n) { return Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+
+function getLast12Months() {
+  const months = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return months;
+}
+
+function getMonthlySpend(records) {
+  const map = {};
+  for (const r of records) {
+    const m = toYYYYMM(r.date);
+    if (!m) continue;
+    map[m] = (map[m] || 0) + Number(r.totalAmount || 0);
+  }
+  return map;
+}
+
+function getDistinctMaterials(records) {
+  return [...new Set(records.map(r => r.materialName).filter(Boolean))].sort();
+}
+
+function getDistinctRegions(records) {
+  return [...new Set(records.map(r => r.region).filter(Boolean))].sort();
+}
+
+function getMaterialMonthlyAvgPrice(records, material) {
+  const map = {};
+  for (const r of records) {
+    if (r.materialName !== material) continue;
+    const m = toYYYYMM(r.date);
+    if (!m) continue;
+    if (!map[m]) map[m] = { sum: 0, count: 0 };
+    map[m].sum += Number(r.unitPrice || 0);
+    map[m].count++;
+  }
+  const result = {};
+  for (const m in map) result[m] = map[m].sum / map[m].count;
+  return result;
+}
+
+function getRegionalAvgPriceMatrix(records) {
+  const materials = getDistinctMaterials(records);
+  const regions = getDistinctRegions(records);
+  const matrix = {};
+  for (const mat of materials) {
+    matrix[mat] = {};
+    for (const reg of regions) {
+      const subset = records.filter(r => r.materialName === mat && r.region === reg);
+      if (subset.length === 0) { matrix[mat][reg] = null; continue; }
+      const avg = subset.reduce((s, r) => s + Number(r.unitPrice || 0), 0) / subset.length;
+      matrix[mat][reg] = avg;
+    }
+  }
+  return { matrix, materials, regions };
+}
+
+function getMoMTable(records, material) {
+  const byRegion = {};
+  const regions = getDistinctRegions(records);
+  for (const reg of regions) {
+    const subset = records.filter(r => r.materialName === material && r.region === reg);
+    if (!subset.length) continue;
+    byRegion[reg] = {};
+    for (const r of subset) {
+      const m = toYYYYMM(r.date);
+      if (!byRegion[reg][m]) byRegion[reg][m] = { sum: 0, count: 0 };
+      byRegion[reg][m].sum += Number(r.unitPrice || 0);
+      byRegion[reg][m].count++;
+    }
+  }
+  const months = getLast12Months().filter(m => {
+    for (const reg in byRegion) if (byRegion[reg][m]) return true;
+    return false;
+  });
+  return { byRegion, months };
+}
+
+function getTrackerSeries(records, material, regions) {
+  const months = getLast12Months();
+  return regions.map(reg => {
+    const data = months.map(m => {
+      const pts = records.filter(r => r.materialName === material && r.region === reg && toYYYYMM(r.date) === m);
+      if (!pts.length) return null;
+      return pts.reduce((s, r) => s + Number(r.unitPrice || 0), 0) / pts.length;
+    });
+    return { label: reg, data };
+  });
+}
+
+// ============================================================
+// CHART REGISTRY
+// ============================================================
+const charts = {};
+function renderChart(id, config) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, config);
+}
+
+const REGION_COLORS = {
+  'North': '#3b82f6', 'South': '#22c55e', 'East': '#f97316',
+  'West': '#a855f7', 'Central': '#eab308', 'Other': '#ec4899',
+  'default': ['#3b82f6','#22c55e','#f97316','#a855f7','#eab308','#ec4899','#06b6d4','#f43f5e']
+};
+function regionColor(reg, idx) { return REGION_COLORS[reg] || REGION_COLORS.default[idx % 8]; }
+
+const CHART_DEFAULTS = {
+  plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+    y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.06)' } }
+  }
+};
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const records = DB.load();
+  const now = new Date();
+  const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prevMonth = (() => { const d = new Date(now.getFullYear(), now.getMonth() - 1, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+
+  const thisMonthRecs = records.filter(r => toYYYYMM(r.date) === curMonth);
+  const prevMonthRecs = records.filter(r => toYYYYMM(r.date) === prevMonth);
+  const thisSpend = thisMonthRecs.reduce((s, r) => s + Number(r.totalAmount || 0), 0);
+  const prevSpend = prevMonthRecs.reduce((s, r) => s + Number(r.totalAmount || 0), 0);
+  const spendDelta = prevSpend ? ((thisSpend - prevSpend) / prevSpend * 100).toFixed(1) : null;
+
+  // KPI
+  const kpis = [
+    { label: 'This Month Spend', value: fmtCurrency(thisSpend), sub: spendDelta !== null ? (spendDelta >= 0 ? `▲ ${spendDelta}% vs last month` : `▼ ${Math.abs(spendDelta)}% vs last month`) : 'No data last month', subColor: spendDelta !== null ? (spendDelta >= 0 ? 'var(--danger)' : 'var(--success)') : 'var(--muted)' },
+    { label: 'Total Records', value: records.length, sub: `${thisMonthRecs.length} this month` },
+    { label: 'Materials Tracked', value: getDistinctMaterials(records).length, sub: 'Distinct materials' },
+    { label: 'Regions Covered', value: getDistinctRegions(records).length, sub: 'Active regions' },
+  ];
+  const kpiGrid = document.getElementById('kpi-grid');
+  kpiGrid.innerHTML = kpis.map(k => `
+    <div class="card">
+      <div class="card-title">${k.label}</div>
+      <div class="card-value">${k.value}</div>
+      <div class="card-sub" style="color:${k.subColor || 'var(--muted)'};">${k.sub}</div>
+    </div>`).join('');
+
+  document.getElementById('dash-period').textContent = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  // Monthly Expenditure Chart
+  const months = getLast12Months();
+  const spendMap = getMonthlySpend(records);
+  renderChart('chart-monthly', {
+    type: 'bar',
+    data: {
+      labels: months.map(fmtMonth),
+      datasets: [{ label: 'Total Spend', data: months.map(m => spendMap[m] || 0), backgroundColor: '#f97316', borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } },
+      scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v => '₹' + (v >= 1e5 ? (v/1e5).toFixed(1)+'L' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v) } } }
+    }
+  });
+
+  // Trend chart - top 5 materials
+  const materials = getDistinctMaterials(records).slice(0, 5);
+  const trendDatasets = materials.map((mat, i) => {
+    const priceMap = getMaterialMonthlyAvgPrice(records, mat);
+    return { label: mat, data: months.map(m => priceMap[m] || null), borderColor: REGION_COLORS.default[i], backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, spanGaps: true };
+  });
+  renderChart('chart-trend', {
+    type: 'line',
+    data: { labels: months.map(fmtMonth), datasets: trendDatasets },
+    options: { ...CHART_DEFAULTS, scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v => '₹' + v } } } }
+  });
+
+  // Regional table
+  const { matrix, materials: mats, regions } = getRegionalAvgPriceMatrix(records);
+  const wrap = document.getElementById('regional-table-wrap');
+  if (!mats.length) { wrap.innerHTML = '<div class="empty-state"><div class="icon">🗺️</div><h3>No data yet</h3><p>Add purchases to see regional pricing.</p></div>'; return; }
+  // find global avg per material for coloring
+  const globalAvg = {};
+  for (const mat of mats) {
+    const vals = regions.map(r => matrix[mat][r]).filter(v => v !== null);
+    globalAvg[mat] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }
+  wrap.innerHTML = `<div class="table-wrap"><table class="regional-table">
+    <thead><tr><th>Material</th>${regions.map(r => `<th>${r}</th>`).join('')}</tr></thead>
+    <tbody>${mats.map(mat => `<tr>
+      <td class="material-col">${mat}</td>
+      ${regions.map(reg => {
+        const v = matrix[mat][reg];
+        if (v === null) return '<td style="color:var(--muted);">—</td>';
+        const cls = v > globalAvg[mat] * 1.05 ? 'price-high' : v < globalAvg[mat] * 0.95 ? 'price-low' : 'price-mid';
+        return `<td class="${cls}">₹${v.toFixed(2)}</td>`;
+      }).join('')}
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ============================================================
+// ADD / EDIT FORM
+// ============================================================
+let currentFile = { dataUrl: null, name: null, type: null };
+
+function resetForm() {
+  document.getElementById('purchase-form').reset();
+  document.getElementById('edit-id').value = '';
+  document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  clearFile();
+  clearErrors();
+  document.getElementById('form-title').textContent = 'Add Purchase';
+  document.getElementById('btn-submit').textContent = 'Save Purchase';
+  document.getElementById('btn-cancel-edit').style.display = 'none';
+}
+
+function cancelEdit() { resetForm(); }
+
+function clearFile() {
+  currentFile = { dataUrl: null, name: null, type: null };
+  document.getElementById('file-input').value = '';
+  document.getElementById('btn-clear-file').style.display = 'none';
+  document.getElementById('preview-box').innerHTML = '<span style="color:var(--muted);font-size:13px;">No file selected</span>';
+}
+
+function clearErrors() {
+  ['material','region','date','qty','unit-price','total'].forEach(f => {
+    const el = document.getElementById('f-' + f);
+    const err = document.getElementById('e-' + f);
+    if (el) el.classList.remove('error');
+    if (err) err.textContent = '';
+  });
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('alert-form');
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function loadFilePreview(file) {
+  currentFile.name = file.name;
+  currentFile.type = file.type;
+  const preview = document.getElementById('preview-box');
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      // Resize image
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 800;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        currentFile.dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        preview.innerHTML = `<img src="${currentFile.dataUrl}" alt="invoice"><p>${file.name}</p>`;
+        document.getElementById('btn-clear-file').style.display = 'inline-flex';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    currentFile.dataUrl = null;
+    preview.innerHTML = `<div class="pdf-icon">📑</div><p>${file.name}</p>`;
+    document.getElementById('btn-clear-file').style.display = 'inline-flex';
+  }
+}
+
+// File input handlers
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFilePreview(e.target.files[0]);
+});
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files[0]) loadFilePreview(e.dataTransfer.files[0]); });
+
+// Auto-calculate total
+['f-qty', 'f-unit-price'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    const q = parseFloat(document.getElementById('f-qty').value);
+    const p = parseFloat(document.getElementById('f-unit-price').value);
+    if (!isNaN(q) && !isNaN(p)) document.getElementById('f-total').value = (q * p).toFixed(2);
+  });
+});
+
+document.getElementById('purchase-form').addEventListener('submit', e => {
+  e.preventDefault();
+  clearErrors();
+  let valid = true;
+
+  const required = [
+    { id: 'f-material', eid: 'e-material', msg: 'Material name is required' },
+    { id: 'f-region',   eid: 'e-region',   msg: 'Region is required' },
+    { id: 'f-date',     eid: 'e-date',     msg: 'Date is required' },
+    { id: 'f-qty',      eid: 'e-qty',      msg: 'Quantity is required' },
+    { id: 'f-unit-price', eid: 'e-unit-price', msg: 'Unit price is required' },
+    { id: 'f-total',    eid: 'e-total',    msg: 'Total amount is required' },
+  ];
+  for (const r of required) {
+    const el = document.getElementById(r.id);
+    if (!el.value.trim()) {
+      el.classList.add('error');
+      document.getElementById(r.eid).textContent = r.msg;
+      valid = false;
+    }
+  }
+  if (!valid) return;
+
+  const record = {
+    date: document.getElementById('f-date').value,
+    materialName: document.getElementById('f-material').value.trim(),
+    region: document.getElementById('f-region').value,
+    unit: document.getElementById('f-unit').value,
+    quantity: parseFloat(document.getElementById('f-qty').value),
+    unitPrice: parseFloat(document.getElementById('f-unit-price').value),
+    totalAmount: parseFloat(document.getElementById('f-total').value),
+    vendor: document.getElementById('f-vendor').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+    invoiceFileName: currentFile.name,
+    invoiceDataUrl: currentFile.dataUrl,
+  };
+
+  const editId = document.getElementById('edit-id').value;
+  if (editId) {
+    DB.update(editId, record);
+    showAlert('success', 'Purchase updated successfully.');
+  } else {
+    DB.add(record);
+    showAlert('success', 'Purchase saved successfully.');
+  }
+  resetForm();
+  updateTrackerMaterialDropdown();
+});
+
+function loadForEdit(id) {
+  const records = DB.load();
+  const r = records.find(rec => rec.id === id);
+  if (!r) return;
+  document.getElementById('edit-id').value = r.id;
+  document.getElementById('f-material').value = r.materialName || '';
+  document.getElementById('f-region').value = r.region || '';
+  document.getElementById('f-date').value = r.date || '';
+  document.getElementById('f-unit').value = r.unit || 'kg';
+  document.getElementById('f-qty').value = r.quantity || '';
+  document.getElementById('f-unit-price').value = r.unitPrice || '';
+  document.getElementById('f-total').value = r.totalAmount || '';
+  document.getElementById('f-vendor').value = r.vendor || '';
+  document.getElementById('f-notes').value = r.notes || '';
+  document.getElementById('form-title').textContent = 'Edit Purchase';
+  document.getElementById('btn-submit').textContent = 'Update Purchase';
+  document.getElementById('btn-cancel-edit').style.display = 'inline-flex';
+
+  if (r.invoiceDataUrl) {
+    currentFile = { dataUrl: r.invoiceDataUrl, name: r.invoiceFileName, type: 'image' };
+    document.getElementById('preview-box').innerHTML = `<img src="${r.invoiceDataUrl}" alt="invoice"><p>${r.invoiceFileName}</p>`;
+    document.getElementById('btn-clear-file').style.display = 'inline-flex';
+  } else if (r.invoiceFileName) {
+    currentFile = { dataUrl: null, name: r.invoiceFileName, type: 'pdf' };
+    document.getElementById('preview-box').innerHTML = `<div class="pdf-icon">📑</div><p>${r.invoiceFileName}</p>`;
+    document.getElementById('btn-clear-file').style.display = 'inline-flex';
+  }
+  switchTab('add');
+}
+
+// ============================================================
+// RECORDS TABLE
+// ============================================================
+let sortCol = 'date', sortDir = -1, currentPage = 1;
+const PAGE_SIZE = 20;
+
+function getFilteredRecords() {
+  const search = document.getElementById('filter-search').value.toLowerCase();
+  const region = document.getElementById('filter-region').value;
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  return DB.load().filter(r => {
+    if (search && !r.materialName?.toLowerCase().includes(search) && !r.vendor?.toLowerCase().includes(search)) return false;
+    if (region && r.region !== region) return false;
+    if (from && r.date < from) return false;
+    if (to && r.date > to) return false;
+    return true;
+  });
+}
+
+const BADGE_CLASSES = { North: 'badge-blue', South: 'badge-green', East: 'badge-orange', West: 'badge-purple', Central: 'badge-cyan', Other: 'badge-pink' };
+function regionBadge(reg) { return `<span class="badge ${BADGE_CLASSES[reg] || 'badge-blue'}">${reg}</span>`; }
+
+function renderRecords() {
+  let records = getFilteredRecords();
+  records.sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (['quantity','unitPrice','totalAmount'].includes(sortCol)) { va = Number(va); vb = Number(vb); }
+    if (va < vb) return -sortDir; if (va > vb) return sortDir; return 0;
+  });
+
+  const total = records.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const page = records.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  document.getElementById('records-count').textContent = `${total} record${total !== 1 ? 's' : ''}`;
+
+  const tbody = document.getElementById('records-tbody');
+  const empty = document.getElementById('records-empty');
+  if (!page.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = page.map(r => `<tr>
+    <td>${r.date}</td>
+    <td><strong>${r.materialName}</strong></td>
+    <td>${regionBadge(r.region)}</td>
+    <td style="text-align:right;">${fmtNum(r.quantity)} ${r.unit}</td>
+    <td style="text-align:right;" class="font-mono">${fmtCurrency(r.unitPrice)}</td>
+    <td style="text-align:right;font-weight:600;" class="font-mono">${fmtCurrency(r.totalAmount)}</td>
+    <td>${r.vendor || '<span class="text-muted">—</span>'}</td>
+    <td>${r.invoiceFileName ? `<span title="${r.invoiceFileName}" style="cursor:default;">${r.invoiceDataUrl ? `<img src="${r.invoiceDataUrl}" style="height:28px;border-radius:3px;vertical-align:middle;">` : '📑'}</span>` : '<span class="text-muted">—</span>'}</td>
+    <td><div class="actions-cell"><button class="btn btn-edit" onclick="loadForEdit('${r.id}')">Edit</button><button class="btn btn-danger" onclick="confirmDelete('${r.id}', '${r.materialName.replace(/'/g,"\\'")}')">Delete</button></div></td>
+  </tr>`).join('');
+
+  // Pagination
+  const pag = document.getElementById('pagination');
+  pag.innerHTML = `
+    <button class="btn btn-secondary btn-sm" onclick="changePage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ Prev</button>
+    <span class="page-info text-muted">Page ${currentPage} of ${totalPages}</span>
+    <button class="btn btn-secondary btn-sm" onclick="changePage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>Next ›</button>`;
+}
+
+function changePage(p) { currentPage = p; renderRecords(); }
+
+function clearFilters() {
+  document.getElementById('filter-search').value = '';
+  document.getElementById('filter-region').value = '';
+  document.getElementById('filter-from').value = '';
+  document.getElementById('filter-to').value = '';
+  currentPage = 1;
+  renderRecords();
+}
+
+// Sort headers
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = -1; }
+    document.querySelectorAll('th[data-col]').forEach(t => { t.classList.remove('sorted'); t.querySelector('.sort-icon').textContent = '↕'; });
+    th.classList.add('sorted');
+    th.querySelector('.sort-icon').textContent = sortDir === 1 ? '↑' : '↓';
+    currentPage = 1;
+    renderRecords();
+  });
+});
+
+['filter-search','filter-region','filter-from','filter-to'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => { currentPage = 1; renderRecords(); });
+  document.getElementById(id).addEventListener('change', () => { currentPage = 1; renderRecords(); });
+});
+
+// Delete
+let pendingDeleteId = null;
+function confirmDelete(id, name) {
+  pendingDeleteId = id;
+  document.getElementById('confirm-msg').textContent = `Delete purchase record for "${name}"? This cannot be undone.`;
+  document.getElementById('confirm-modal').classList.add('show');
+}
+function closeModal() { document.getElementById('confirm-modal').classList.remove('show'); pendingDeleteId = null; }
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  if (pendingDeleteId) { DB.delete(pendingDeleteId); closeModal(); renderRecords(); }
+});
+
+// Export CSV
+function exportCSV() {
+  const records = getFilteredRecords();
+  if (!records.length) { alert('No records to export.'); return; }
+  const headers = ['Date','Material','Region','Quantity','Unit','Unit Price (INR)','Total Amount (INR)','Vendor','Notes'];
+  const rows = records.map(r => [r.date,r.materialName,r.region,r.quantity,r.unit,r.unitPrice,r.totalAmount,r.vendor||'',r.notes||''].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `purchases_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ============================================================
+// PRICE TRACKER
+// ============================================================
+function updateTrackerMaterialDropdown() {
+  const sel = document.getElementById('tracker-material');
+  const current = sel.value;
+  const materials = getDistinctMaterials(DB.load());
+  sel.innerHTML = '<option value="">Select material...</option>' + materials.map(m => `<option ${m===current?'selected':''}>${m}</option>`).join('');
+}
+
+function updateTrackerRegionChecks() {
+  const regions = getDistinctRegions(DB.load());
+  const container = document.getElementById('tracker-regions');
+  const checked = [...container.querySelectorAll('input:checked')].map(i => i.value);
+  container.innerHTML = regions.map((reg, i) => `
+    <label>
+      <input type="checkbox" value="${reg}" ${checked.includes(reg) || checked.length===0 ? 'checked' : ''}>
+      <span style="color:${regionColor(reg,i)};">${reg}</span>
+    </label>`).join('');
+}
+
+function renderTracker() {
+  const material = document.getElementById('tracker-material').value;
+  const selectedRegions = [...document.getElementById('tracker-regions').querySelectorAll('input:checked')].map(i => i.value);
+  if (!material) { alert('Please select a material first.'); return; }
+
+  const records = DB.load();
+  const months = getLast12Months();
+  const series = getTrackerSeries(records, material, selectedRegions);
+
+  renderChart('chart-tracker', {
+    type: 'line',
+    data: {
+      labels: months.map(fmtMonth),
+      datasets: series.map((s, i) => ({
+        label: s.label,
+        data: s.data,
+        borderColor: regionColor(s.label, i),
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        pointRadius: 4,
+        spanGaps: true
+      }))
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v => '₹' + v } } }
+    }
+  });
+
+  // MoM table
+  const { byRegion, months: momMonths } = getMoMTable(records, material);
+  const wrap = document.getElementById('mom-table-wrap');
+  if (!momMonths.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">📊</div><h3>No data found for selected material</h3></div>';
+    return;
+  }
+  const regions = Object.keys(byRegion).filter(r => selectedRegions.includes(r));
+  if (!regions.length) { wrap.innerHTML = '<div class="empty-state"><h3>No data for selected regions</h3></div>'; return; }
+
+  const rows = regions.flatMap(reg => {
+    return momMonths.map((m, mi) => {
+      const curr = byRegion[reg]?.[m];
+      const currAvg = curr ? curr.sum / curr.count : null;
+      const prevM = momMonths[mi - 1];
+      const prev = prevM ? byRegion[reg]?.[prevM] : null;
+      const prevAvg = prev ? prev.sum / prev.count : null;
+      const delta = (currAvg !== null && prevAvg !== null) ? ((currAvg - prevAvg) / prevAvg * 100) : null;
+      return { reg, month: m, currAvg, prevAvg, delta };
+    }).filter(r => r.currAvg !== null);
+  });
+
+  wrap.innerHTML = `<div class="table-wrap"><table class="mom-table">
+    <thead><tr><th>Material</th><th>Region</th><th>Month</th><th style="text-align:right">Prev Month Avg</th><th style="text-align:right">This Month Avg</th><th style="text-align:right">Change</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td><strong>${material}</strong></td>
+      <td>${regionBadge(r.reg)}</td>
+      <td>${fmtMonth(r.month)}</td>
+      <td style="text-align:right;">${r.prevAvg !== null ? fmtCurrency(r.prevAvg) : '<span class="text-muted">—</span>'}</td>
+      <td style="text-align:right;">${fmtCurrency(r.currAvg)}</td>
+      <td style="text-align:right;" class="${r.delta === null ? '' : r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : ''}">${r.delta === null ? '<span class="text-muted">—</span>' : (r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : '') + ' ' + Math.abs(r.delta).toFixed(1) + '%'}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ============================================================
+// TAB NAVIGATION
+// ============================================================
+function switchTab(name) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + name));
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'records') renderRecords();
+  if (name === 'tracker') { updateTrackerMaterialDropdown(); updateTrackerRegionChecks(); }
+}
+
+document.querySelectorAll('nav button[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+renderDashboard();
+</script>
+</body>
+</html>
