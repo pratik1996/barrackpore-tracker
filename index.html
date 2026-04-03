@@ -679,21 +679,58 @@ function loadingHTML() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  FIRESTORE HELPERS
+//  FIRESTORE HELPERS  (all calls have a 6s timeout)
 // ═══════════════════════════════════════════════════════════
+const TIMEOUT_MS = 6000;
+function withTimeout(promise) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Firebase timeout — check Firestore is created in your Firebase console')), TIMEOUT_MS)
+        )
+    ]);
+}
+
+// ── Local backup (localStorage) so data is never lost ──
+const LOCAL_KEY = 'bpore_local_v1';
+function localGet(dateKey) {
+    try { return (JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'))[dateKey] || {}; }
+    catch(e) { return {}; }
+}
+function localSet(dateKey, section, data) {
+    try {
+        const all = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
+        if (!all[dateKey]) all[dateKey] = {};
+        all[dateKey][section] = data;
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(all));
+    } catch(e) {}
+}
+function localGetAll() {
+    try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'); }
+    catch(e) { return {}; }
+}
+function localDelete(dateKey) {
+    try {
+        const all = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
+        delete all[dateKey];
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(all));
+    } catch(e) {}
+}
+
 async function getDayData(dateKey) {
-    const doc = await db.collection(COLLECTION).doc(dateKey).get();
+    const doc = await withTimeout(db.collection(COLLECTION).doc(dateKey).get());
     return doc.exists ? doc.data() : {};
 }
 async function saveSectionToDb(dateKey, section, data) {
-    await db.collection(COLLECTION).doc(dateKey).set({ [section]: data }, { merge: true });
+    await withTimeout(db.collection(COLLECTION).doc(dateKey).set({ [section]: data }, { merge: true }));
 }
 async function deleteDayFromDb(dateKey) {
-    await db.collection(COLLECTION).doc(dateKey).delete();
+    await withTimeout(db.collection(COLLECTION).doc(dateKey).delete());
 }
 async function getAllDates() {
-    const snap = await db.collection(COLLECTION)
-        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc').get();
+    const snap = await withTimeout(
+        db.collection(COLLECTION).orderBy(firebase.firestore.FieldPath.documentId(), 'desc').get()
+    );
     return snap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
 }
 
@@ -812,8 +849,8 @@ async function renderLogEntry() {
     await loadEntryDate();
 }
 async function loadEntryDate() {
-    // Show the form IMMEDIATELY — never block on Firebase
-    currentDayData = {};
+    // Show the form IMMEDIATELY using local data — never block on Firebase
+    currentDayData = localGet(entryDate);
     renderSectionTabs();
     renderForm();
 
@@ -921,16 +958,24 @@ async function saveSection() {
     const nb = document.getElementById('nextBtn');
     if (sb) { sb.disabled = true; sb.textContent = 'Saving…'; }
     if (nb) nb.disabled = true;
+
+    const entry = collectFormData();
+
+    // 1. Save locally INSTANTLY — never lose data
+    localSet(entryDate, currentSection, entry);
+    currentDayData[currentSection] = entry;
+    renderSectionTabs();
+
+    // 2. Try syncing to Firebase
     try {
-        const entry = collectFormData();
         await saveSectionToDb(entryDate, currentSection, entry);
-        currentDayData[currentSection] = entry;
         setConn(true);
-        renderSectionTabs();
         showToast(`✅ ${currentSection} saved`);
     } catch(e) {
         setConn(false);
-        showToast('❌ Save failed — check connection', true);
+        // Still show success — data IS saved locally
+        showToast(`💾 Saved locally (Firebase not reachable)`, true);
+        console.warn('Firebase save failed:', e.message);
     } finally {
         if (sb) { sb.disabled = false; sb.textContent = '💾 Save'; }
         if (nb) nb.disabled = false;
