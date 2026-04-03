@@ -2,79 +2,145 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barrackpore Site Activity Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Barrackpore Site Tracker</title>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-            color: #333;
-            min-height: 100vh;
+        :root {
+            --primary: #1a3c5e;
+            --primary-light: #2d6a9f;
+            --accent: #f39c12;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --border: #dce3ec;
+            --text: #222;
+            --muted: #888;
+            --nav-h: 60px;        /* top nav height desktop */
+            --bot-h: 64px;        /* bottom nav height mobile */
         }
 
-        /* ── Header ── */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100%;
+            /* room for fixed bottom nav on mobile */
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* ═══ HEADER ═══ */
         header {
-            background: linear-gradient(135deg, #1a3c5e 0%, #2d6a9f 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
-            padding: 16px 24px;
+            padding: 14px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.4px; }
-        header .subtitle { font-size: 0.82rem; opacity: 0.75; margin-top: 3px; }
-        .header-right { display: flex; align-items: center; gap: 12px; }
+        header h1 { font-size: 1.15rem; font-weight: 700; }
+        header .subtitle { font-size: 0.75rem; opacity: 0.75; margin-top: 2px; }
+        .header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .date-badge {
-            background: rgba(255,255,255,0.15);
-            padding: 6px 16px;
+            background: rgba(255,255,255,0.18);
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 0.88rem;
+            font-size: 0.82rem;
             font-weight: 500;
             white-space: nowrap;
         }
         .conn-dot {
-            width: 10px; height: 10px;
+            width: 11px; height: 11px;
             border-radius: 50%;
-            background: #f39c12;
-            display: inline-block;
+            background: var(--accent);
+            flex-shrink: 0;
             transition: background 0.4s;
         }
-        .conn-dot.online { background: #2ecc71; }
-        .conn-dot.offline { background: #e74c3c; }
+        .conn-dot.online  { background: #2ecc71; }
+        .conn-dot.offline { background: var(--danger); }
 
-        /* ── Navigation ── */
-        nav {
+        /* ═══ DESKTOP NAV (top) ═══ */
+        .top-nav {
             background: white;
-            border-bottom: 2px solid #e0e6ee;
+            border-bottom: 2px solid var(--border);
             display: flex;
-            padding: 0 24px;
+            padding: 0 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        nav button {
-            padding: 14px 26px;
+        .top-nav button {
+            padding: 14px 24px;
             border: none;
             background: none;
             cursor: pointer;
-            font-size: 0.93rem;
-            color: #666;
+            font-size: 0.92rem;
+            color: var(--muted);
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
             font-weight: 500;
             transition: color 0.2s;
         }
-        nav button:hover { color: #1a3c5e; }
-        nav button.active { color: #1a3c5e; border-bottom-color: #f39c12; }
+        .top-nav button:hover { color: var(--primary); }
+        .top-nav button.active { color: var(--primary); border-bottom-color: var(--accent); }
 
-        /* ── Layout ── */
-        main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        /* ═══ MOBILE BOTTOM NAV ═══ */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: var(--bot-h);
+            background: white;
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
+            z-index: 200;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .bottom-nav-inner {
+            display: flex;
+            height: var(--bot-h);
+        }
+        .bot-btn {
+            flex: 1;
+            border: none;
+            background: none;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: var(--muted);
+            font-size: 0.7rem;
+            font-weight: 500;
+            padding: 8px 4px;
+            transition: color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .bot-btn .icon { font-size: 1.5rem; line-height: 1; }
+        .bot-btn.active { color: var(--primary); }
+        .bot-btn.active .icon { transform: scale(1.1); }
+
+        /* ═══ MAIN CONTENT ═══ */
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 16px;
+        }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
@@ -84,216 +150,298 @@
             align-items: center;
             margin-bottom: 6px;
         }
-        .page-header h2 { font-size: 1.25rem; color: #1a3c5e; }
-        .page-subtext { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
+        .page-header h2 { font-size: 1.2rem; color: var(--primary); font-weight: 700; }
+        .page-subtext { color: var(--muted); font-size: 0.85rem; margin-bottom: 18px; }
 
-        /* ── Loading ── */
-        .loading-overlay {
+        /* ═══ LOADING ═══ */
+        .loading-box {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 60px 20px;
-            flex-direction: column;
             gap: 14px;
-            color: #999;
+            padding: 60px 20px;
+            color: var(--muted);
+            font-size: 0.9rem;
         }
         .spinner {
             width: 36px; height: 36px;
-            border: 4px solid #e0e6ee;
-            border-top-color: #1a3c5e;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Summary bar ── */
+        /* ═══ SUMMARY BAR ═══ */
         .summary-bar {
-            display: flex;
-            gap: 14px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
         }
         .summary-stat {
-            background: white;
-            border-radius: 10px;
-            padding: 14px 20px;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 14px 10px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.07);
-            flex: 1;
-            min-width: 110px;
             text-align: center;
         }
-        .summary-stat .big { font-size: 1.9rem; font-weight: 700; color: #1a3c5e; }
-        .summary-stat .lbl { font-size: 0.78rem; color: #999; margin-top: 4px; }
+        .summary-stat .big { font-size: 1.75rem; font-weight: 700; color: var(--primary); }
+        .summary-stat .lbl { font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
 
-        /* ── Section cards (dashboard) ── */
+        /* ═══ SECTION CARDS ═══ */
         .section-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-            gap: 18px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
         }
         .section-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
+            background: var(--card);
+            border-radius: 14px;
+            padding: 18px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-left: 4px solid #1a3c5e;
+            border-left: 4px solid var(--primary);
             transition: transform 0.18s, box-shadow 0.18s;
         }
-        .section-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
         .section-card h3 {
-            font-size: 1.05rem;
-            color: #1a3c5e;
-            margin-bottom: 14px;
+            font-size: 1rem;
+            color: var(--primary);
+            margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .stat-row { display: flex; align-items: center; margin-bottom: 9px; font-size: 0.88rem; }
-        .stat-label { color: #888; width: 110px; flex-shrink: 0; }
-        .stat-value { font-weight: 600; color: #333; }
+        .stat-row { display: flex; align-items: flex-start; margin-bottom: 8px; font-size: 0.87rem; gap: 8px; }
+        .stat-label { color: var(--muted); min-width: 90px; flex-shrink: 0; padding-top: 1px; }
+        .stat-value { font-weight: 600; }
 
-        .progress-bar { width: 100%; height: 8px; background: #e8edf2; border-radius: 4px; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #1a3c5e, #2d6a9f); border-radius: 4px; transition: width 0.3s; }
+        .progress-bar { width: 100%; height: 8px; background: #e8edf2; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 4px; }
 
-        .badge-issue { background: #e74c3c; color: white; padding: 2px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
-        .badge-clear { background: #27ae60; color: white; padding: 2px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
-        .badge-nodata { background: #bbb; color: white; padding: 2px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+        .badge { padding: 3px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; }
+        .badge-issue { background: var(--danger); color: white; }
+        .badge-clear { background: var(--success); color: white; }
+        .badge-nodata { background: #ccc; color: white; }
 
-        /* ── Section tabs (log entry) ── */
-        .section-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-        .section-tab {
-            padding: 8px 18px;
-            border: 2px solid #dce3ec;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            color: #666;
-            transition: all 0.18s;
-            font-size: 0.9rem;
-        }
-        .section-tab:hover { border-color: #1a3c5e; color: #1a3c5e; }
-        .section-tab.active { background: #1a3c5e; color: white; border-color: #1a3c5e; }
-        .section-tab.has-data::after { content: ' ✓'; color: #f39c12; }
-        .section-tab.active.has-data::after { color: #f8d06c; }
-
-        /* ── Form ── */
-        .form-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; font-weight: 600; color: #444; margin-bottom: 7px; font-size: 0.88rem; }
-        .form-group input[type="number"],
-        .form-group input[type="date"],
-        .form-group textarea {
-            width: 100%;
-            padding: 10px 14px;
-            border: 2px solid #dce3ec;
-            border-radius: 8px;
-            font-size: 0.93rem;
-            font-family: inherit;
-            transition: border-color 0.2s;
-            background: #fafbfc;
-        }
-        .form-group input:focus,
-        .form-group textarea:focus { outline: none; border-color: #1a3c5e; background: white; }
-        .form-group textarea { resize: vertical; min-height: 78px; }
-
-        .progress-input-row { display: flex; align-items: center; gap: 16px; }
-        .progress-input-row input[type="range"] { flex: 1; height: 6px; accent-color: #1a3c5e; cursor: pointer; }
-        .pct-display { font-weight: 700; color: #1a3c5e; font-size: 1.1rem; min-width: 50px; text-align: right; }
-
-        .form-actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
-
-        .date-selector-row {
+        /* ═══ DATE SELECTOR ═══ */
+        .date-row {
             display: flex;
             align-items: center;
-            gap: 14px;
-            margin-bottom: 18px;
-            background: white;
-            padding: 14px 18px;
-            border-radius: 10px;
+            gap: 10px;
+            background: var(--card);
+            padding: 12px 16px;
+            border-radius: 12px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            margin-bottom: 16px;
             flex-wrap: wrap;
         }
-        .date-selector-row label { font-weight: 600; color: #444; font-size: 0.9rem; }
-        .date-selector-row input[type="date"] { width: auto; }
+        .date-row label { font-weight: 600; color: #444; font-size: 0.9rem; }
 
-        /* ── Buttons ── */
-        .btn { border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 0.92rem; font-weight: 600; transition: all 0.18s; }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-primary { background: #1a3c5e; color: white; }
-        .btn-primary:hover:not(:disabled) { background: #2d6a9f; }
-        .btn-secondary { background: white; color: #555; border: 2px solid #dce3ec; }
-        .btn-secondary:hover:not(:disabled) { border-color: #999; color: #333; }
-        .btn-success { background: #27ae60; color: white; }
-        .btn-success:hover:not(:disabled) { background: #219a52; }
-        .btn-danger { background: #e74c3c; color: white; }
-        .btn-danger:hover:not(:disabled) { background: #c0392b; }
-        .btn-sm { padding: 7px 14px; font-size: 0.82rem; }
-
-        /* ── History ── */
-        .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
-        .history-item {
-            background: white;
+        /* ═══ SECTION TABS (scrollable on mobile) ═══ */
+        .section-tabs-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 14px;
+            /* hide scrollbar */
+            scrollbar-width: none;
+        }
+        .section-tabs-wrapper::-webkit-scrollbar { display: none; }
+        .section-tabs {
+            display: flex;
+            gap: 8px;
+            width: max-content;
+            padding-bottom: 4px;
+        }
+        .section-tab {
+            padding: 12px 20px;
+            border: 2px solid var(--border);
+            background: var(--card);
             border-radius: 10px;
-            padding: 15px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            transition: all 0.18s;
+        }
+        .section-tab:hover { border-color: var(--primary); color: var(--primary); }
+        .section-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .section-tab.has-data::after { content: ' ✓'; color: var(--accent); }
+        .section-tab.active.has-data::after { color: #f8d06c; }
+
+        /* ═══ FORM CARD ═══ */
+        .form-card {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 20px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .form-card h3 {
+            color: var(--primary);
+            font-size: 1.05rem;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f3f7;
+        }
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* Large touch-friendly inputs */
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group textarea,
+        .date-row input[type="date"] {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;       /* prevents iOS auto-zoom (must be ≥16px) */
+            font-family: inherit;
+            background: #fafbfc;
+            transition: border-color 0.2s;
+            min-height: 50px;
+        }
+        .date-row input[type="date"] { width: auto; min-height: 44px; font-size: 0.95rem; }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .date-row input:focus { outline: none; border-color: var(--primary); background: white; }
+        .form-group textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+
+        /* ═══ PROGRESS SLIDER ═══ */
+        .progress-input-row { display: flex; align-items: center; gap: 14px; }
+        .progress-input-row input[type="range"] {
+            flex: 1;
+            height: 8px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            /* larger touch area */
+            padding: 12px 0;
+        }
+        .pct-display {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.2rem;
+            min-width: 54px;
+            text-align: right;
+        }
+
+        /* ═══ BUTTONS ═══ */
+        .btn {
+            border: none;
+            padding: 14px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            min-height: 50px;
+            transition: all 0.18s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:active:not(:disabled) { background: #0f2540; }
+        .btn-secondary { background: white; color: #555; border: 2px solid var(--border); }
+        .btn-secondary:active:not(:disabled) { background: #f5f5f5; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:active:not(:disabled) { background: #1e8449; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:active:not(:disabled) { background: #a93226; }
+        .btn-sm { padding: 10px 18px; font-size: 0.88rem; min-height: 42px; }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        /* ═══ HISTORY ═══ */
+        .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .history-item {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px 18px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.06);
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            border-left: 4px solid #1a3c5e;
+            border-left: 4px solid var(--primary);
+            min-height: 70px;
             transition: all 0.18s;
         }
-        .history-item:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); transform: translateX(3px); }
-        .history-date { font-weight: 700; color: #1a3c5e; font-size: 1rem; }
-        .history-meta { color: #999; font-size: 0.82rem; margin-top: 3px; }
-        .history-summary { display: flex; gap: 18px; }
+        .history-item:active { background: #f5f8fc; }
+        .history-date { font-weight: 700; color: var(--primary); font-size: 1rem; }
+        .history-meta { color: #999; font-size: 0.8rem; margin-top: 3px; }
+        .history-summary { display: flex; gap: 16px; }
         .h-stat { text-align: center; }
-        .h-stat .num { font-weight: 700; color: #1a3c5e; font-size: 1.15rem; }
-        .h-stat .lbl { font-size: 0.72rem; color: #aaa; }
+        .h-stat .num { font-weight: 700; color: var(--primary); font-size: 1.1rem; }
+        .h-stat .lbl { font-size: 0.7rem; color: #aaa; }
 
-        /* ── Modal ── */
+        /* ═══ MODAL ═══ */
         .modal-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.55);
             z-index: 500;
             display: none;
-            align-items: center;
+            align-items: flex-end;    /* slides up from bottom on mobile */
             justify-content: center;
-            padding: 16px;
         }
         .modal-overlay.open { display: flex; }
         .modal {
             background: white;
-            border-radius: 16px;
-            padding: 28px;
-            max-width: 720px;
+            border-radius: 20px 20px 0 0;
+            padding: 24px 20px;
             width: 100%;
-            max-height: 85vh;
+            max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 0 -4px 30px rgba(0,0,0,0.2);
+        }
+        /* drag handle */
+        .modal::before {
+            content: '';
+            display: block;
+            width: 40px; height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin: 0 auto 18px;
         }
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             padding-bottom: 14px;
             border-bottom: 2px solid #f0f3f7;
         }
-        .modal-header h3 { color: #1a3c5e; font-size: 1.15rem; }
-        .modal-close { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: #bbb; line-height: 1; }
-        .modal-close:hover { color: #555; }
+        .modal-header h3 { color: var(--primary); font-size: 1.1rem; }
+        .modal-close {
+            background: #f0f3f7;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #666;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
 
-        .modal-section { margin-bottom: 22px; }
+        .modal-section { margin-bottom: 20px; }
         .modal-section h4 {
-            color: #1a3c5e;
-            font-size: 0.95rem;
+            color: var(--primary);
+            font-size: 0.92rem;
             margin-bottom: 10px;
             padding-bottom: 6px;
             border-bottom: 1px solid #eef1f6;
@@ -303,82 +451,127 @@
             background: #f5f7fb;
             padding: 8px 12px;
             text-align: left;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             color: #666;
-            border-bottom: 2px solid #e0e6ee;
+            border-bottom: 2px solid var(--border);
         }
         .detail-table td {
-            padding: 9px 12px;
+            padding: 10px 12px;
             border-bottom: 1px solid #f0f3f7;
-            font-size: 0.88rem;
+            font-size: 0.87rem;
             vertical-align: top;
         }
         .detail-table tr:last-child td { border-bottom: none; }
-        .modal-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 2px solid #f0f3f7; }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 2px solid #f0f3f7;
+        }
 
-        /* ── Toast ── */
+        /* ═══ TOAST ═══ */
         .toast {
             position: fixed;
-            bottom: 24px; right: 24px;
-            background: #27ae60;
+            bottom: calc(var(--bot-h) + 16px);
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--success);
             color: white;
-            padding: 13px 22px;
-            border-radius: 8px;
-            font-weight: 500;
-            box-shadow: 0 4px 18px rgba(0,0,0,0.2);
-            transform: translateY(80px);
+            padding: 13px 24px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.92rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             opacity: 0;
             transition: all 0.3s ease;
             z-index: 1000;
-            max-width: 320px;
+            white-space: nowrap;
+            pointer-events: none;
         }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast.error { background: #e74c3c; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.error { background: var(--danger); }
 
-        /* ── Empty state ── */
+        /* ═══ EMPTY STATE ═══ */
         .empty-state { text-align: center; padding: 50px 20px; color: #bbb; }
         .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
-        .empty-state p { font-size: 0.95rem; }
 
-        /* ── Responsive ── */
-        @media (max-width: 600px) {
-            main { padding: 14px; }
-            header { padding: 12px 16px; }
-            header h1 { font-size: 1.05rem; }
+        /* ═══ DESKTOP overrides ═══ */
+        @media (min-width: 641px) {
+            .top-nav { display: flex; }
+            .bottom-nav { display: none; }
+            main { padding: 24px 20px; }
+            .form-actions { flex-wrap: wrap; }
+            .modal-overlay { align-items: center; }
+            .modal {
+                border-radius: 18px;
+                max-width: 720px;
+                max-height: 85vh;
+            }
+            .modal::before { display: none; }
+            .toast { bottom: 24px; }
+        }
+
+        /* ═══ MOBILE overrides ═══ */
+        @media (max-width: 640px) {
+            .top-nav { display: none; }
+            .bottom-nav { display: block; }
+
+            body { padding-bottom: calc(var(--bot-h) + env(safe-area-inset-bottom)); }
+
+            header h1 { font-size: 1rem; }
+            header .subtitle { display: none; }
+
+            main { padding: 14px 12px; }
+
+            /* Summary: 2×2 grid on mobile */
+            .summary-bar { grid-template-columns: 1fr 1fr; }
+            .summary-stat .big { font-size: 1.6rem; }
+
             .section-grid { grid-template-columns: 1fr; }
+
+            /* Full-width stacked buttons on mobile */
+            .form-actions { flex-direction: column; }
+            .form-actions .btn { width: 100%; }
+
+            /* Bigger tap targets */
+            .btn { min-height: 54px; font-size: 1.05rem; }
+
             .history-summary { display: none; }
-            .summary-bar { gap: 8px; }
-            .summary-stat { min-width: 80px; padding: 10px 12px; }
-            .summary-stat .big { font-size: 1.5rem; }
-            nav button { padding: 12px 14px; font-size: 0.85rem; }
+
+            .date-row { gap: 8px; }
         }
     </style>
 </head>
 <body>
 
+<!-- ── HEADER ── -->
 <header>
     <div>
-        <h1>Barrackpore Site Activity Tracker</h1>
+        <h1>Barrackpore Site Tracker</h1>
         <div class="subtitle">Construction Site Daily Monitoring</div>
     </div>
     <div class="header-right">
-        <span class="conn-dot" id="connDot" title="Connecting..."></span>
+        <span class="conn-dot" id="connDot" title="Connecting…"></span>
         <div class="date-badge" id="headerDate"></div>
     </div>
 </header>
 
-<nav>
-    <button data-tab="dashboard" class="active">Dashboard</button>
-    <button data-tab="logentry">Log Entry</button>
-    <button data-tab="history">History</button>
+<!-- ── DESKTOP TOP NAV ── -->
+<nav class="top-nav">
+    <button data-tab="dashboard" class="active">📊 Dashboard</button>
+    <button data-tab="logentry">✏️ Log Entry</button>
+    <button data-tab="history">📋 History</button>
 </nav>
 
+<!-- ── MAIN ── -->
 <main>
+
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
         <div class="page-header">
             <h2>Today's Overview</h2>
-            <button class="btn btn-primary" onclick="showTab('logentry')">+ Log Entry</button>
+            <button class="btn btn-primary btn-sm" onclick="showTab('logentry')">+ Log</button>
         </div>
         <div class="page-subtext" id="dashboardDate"></div>
         <div class="summary-bar" id="summaryBar"></div>
@@ -387,31 +580,54 @@
 
     <!-- LOG ENTRY -->
     <div id="tab-logentry" class="tab-content">
-        <div class="page-header"><h2>Daily Log Entry</h2></div>
-        <div class="page-subtext">Select a section and fill in the day's activity details.</div>
-        <div class="date-selector-row">
+        <div class="page-header"><h2>Log Entry</h2></div>
+        <div class="page-subtext">Tap a section and fill in today's details.</div>
+
+        <div class="date-row">
             <label for="entryDate">Date:</label>
             <input type="date" id="entryDate" onchange="onDateChange()">
             <button class="btn btn-secondary btn-sm" onclick="setToday()">Today</button>
         </div>
-        <div class="section-tabs" id="sectionTabs"></div>
+
+        <div class="section-tabs-wrapper">
+            <div class="section-tabs" id="sectionTabs"></div>
+        </div>
         <div class="form-card" id="sectionForm"></div>
     </div>
 
     <!-- HISTORY -->
     <div id="tab-history" class="tab-content">
-        <div class="page-header"><h2>Activity History</h2></div>
-        <div class="page-subtext">All logged records. Click a date to view full details.</div>
+        <div class="page-header"><h2>History</h2></div>
+        <div class="page-subtext">Tap any date to view full details.</div>
         <div class="history-list" id="historyList"></div>
     </div>
+
 </main>
 
-<!-- Detail Modal -->
+<!-- ── MOBILE BOTTOM NAV ── -->
+<nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+        <button class="bot-btn active" data-tab="dashboard">
+            <span class="icon">📊</span>
+            <span>Dashboard</span>
+        </button>
+        <button class="bot-btn" data-tab="logentry">
+            <span class="icon">✏️</span>
+            <span>Log Entry</span>
+        </button>
+        <button class="bot-btn" data-tab="history">
+            <span class="icon">📋</span>
+            <span>History</span>
+        </button>
+    </div>
+</nav>
+
+<!-- ── MODAL ── -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
         <div class="modal-header">
             <h3 id="modalTitle"></h3>
-            <button class="modal-close" onclick="closeModal()">&#215;</button>
+            <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
         <div id="modalBody"></div>
         <div class="modal-actions" id="modalActions"></div>
@@ -422,9 +638,8 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════
-//  FIREBASE INIT
+//  FIREBASE
 // ═══════════════════════════════════════════════════════════
-
 const firebaseConfig = {
     apiKey: "AIzaSyCKydzZzozuPBiOVrDqKmAm8gIh084wavs",
     authDomain: "barrackpore-tracker.firebaseapp.com",
@@ -434,140 +649,113 @@ const firebaseConfig = {
     appId: "1:882776908175:web:77028448411d3c853aabfa",
     measurementId: "G-0QF4JM217B"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const COLLECTION = 'daily_logs';
 
-// Connection indicator
-db.enableNetwork().then(() => setConn(true)).catch(() => setConn(false));
-function setConn(online) {
-    const dot = document.getElementById('connDot');
-    dot.className = 'conn-dot ' + (online ? 'online' : 'offline');
-    dot.title = online ? 'Connected to database' : 'Offline';
+function setConn(ok) {
+    const d = document.getElementById('connDot');
+    d.className = 'conn-dot ' + (ok ? 'online' : 'offline');
+    d.title = ok ? 'Connected' : 'Offline';
 }
 
 // ═══════════════════════════════════════════════════════════
 //  CONSTANTS & UTILS
 // ═══════════════════════════════════════════════════════════
-
-const SECTIONS = ['Section A', 'Section B', 'Section C', 'Section D', 'Section E', 'Section F'];
+const SECTIONS = ['Section A','Section B','Section C','Section D','Section E','Section F'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function todayKey() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function fmtDate(key) {
-    const [y, m, d] = key.split('-');
+function fmtDate(k) {
+    const [y,m,d] = k.split('-');
     return `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`;
 }
-
-function truncate(str, len) {
-    if (!str) return '';
-    return str.length > len ? str.slice(0, len) + '…' : str;
-}
-
-function loading(html = '') {
-    return html || `<div class="loading-overlay"><div class="spinner"></div><span>Loading from database…</span></div>`;
+function trunc(s, n) { return s && s.length > n ? s.slice(0,n)+'…' : (s||''); }
+function loadingHTML() {
+    return `<div class="loading-box"><div class="spinner"></div><span>Loading…</span></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
 //  FIRESTORE HELPERS
 // ═══════════════════════════════════════════════════════════
-
 async function getDayData(dateKey) {
     const doc = await db.collection(COLLECTION).doc(dateKey).get();
     return doc.exists ? doc.data() : {};
 }
-
-async function saveSectionToDb(dateKey, sectionName, sectionData) {
-    await db.collection(COLLECTION).doc(dateKey).set(
-        { [sectionName]: sectionData },
-        { merge: true }
-    );
+async function saveSectionToDb(dateKey, section, data) {
+    await db.collection(COLLECTION).doc(dateKey).set({ [section]: data }, { merge: true });
 }
-
 async function deleteDayFromDb(dateKey) {
     await db.collection(COLLECTION).doc(dateKey).delete();
 }
-
 async function getAllDates() {
     const snap = await db.collection(COLLECTION)
-        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
-        .get();
+        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc').get();
     return snap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
 }
 
 // ═══════════════════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════════════════
-
-let dashboardUnsubscribe = null;
+let dashUnsub = null;
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('nav button').forEach(btn => {
+    document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tabId);
     });
     document.getElementById('tab-' + tabId).classList.add('active');
-
     if (tabId === 'dashboard') renderDashboard();
-    if (tabId === 'logentry') renderLogEntry();
-    if (tabId === 'history') renderHistory();
+    if (tabId === 'logentry')  renderLogEntry();
+    if (tabId === 'history')   renderHistory();
 }
 
-document.querySelectorAll('nav button').forEach(btn => {
+document.querySelectorAll('[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
 });
 
 // ═══════════════════════════════════════════════════════════
-//  DASHBOARD  (real-time listener)
+//  DASHBOARD
 // ═══════════════════════════════════════════════════════════
-
 function renderDashboard() {
     const today = todayKey();
     document.getElementById('dashboardDate').textContent = fmtDate(today);
     document.getElementById('summaryBar').innerHTML = '';
-    document.getElementById('sectionGrid').innerHTML = loading();
+    document.getElementById('sectionGrid').innerHTML = loadingHTML();
 
-    // Unsubscribe any previous listener
-    if (dashboardUnsubscribe) { dashboardUnsubscribe(); dashboardUnsubscribe = null; }
+    if (dashUnsub) { dashUnsub(); dashUnsub = null; }
 
-    // Real-time listener — updates automatically when anyone saves
-    dashboardUnsubscribe = db.collection(COLLECTION).doc(today)
-        .onSnapshot(doc => {
-            setConn(true);
-            paintDashboard(doc.exists ? doc.data() : {});
-        }, err => {
-            setConn(false);
-            document.getElementById('sectionGrid').innerHTML =
-                `<div class="empty-state"><div class="icon">⚠️</div><p>Could not connect to database. Check your internet connection.</p></div>`;
-        });
+    dashUnsub = db.collection(COLLECTION).doc(today).onSnapshot(doc => {
+        setConn(true);
+        paintDashboard(doc.exists ? doc.data() : {});
+    }, () => {
+        setConn(false);
+        document.getElementById('sectionGrid').innerHTML =
+            `<div class="empty-state"><div class="icon">⚠️</div><p>No connection. Check your internet.</p></div>`;
+    });
 }
 
 function paintDashboard(dayData) {
-    let totalWorkers = 0, sectionsLogged = 0, issueCount = 0, progSum = 0, progCount = 0;
-
+    let workers=0, logged=0, issues=0, pSum=0, pCnt=0;
     SECTIONS.forEach(s => {
-        const sd = dayData[s];
-        if (!sd) return;
-        sectionsLogged++;
-        totalWorkers += parseInt(sd.workers || 0);
-        if (sd.issues && sd.issues.trim()) issueCount++;
-        if (sd.progress !== undefined) { progSum += parseInt(sd.progress); progCount++; }
+        const sd = dayData[s]; if (!sd) return;
+        logged++;
+        workers += parseInt(sd.workers||0);
+        if (sd.issues && sd.issues.trim()) issues++;
+        if (sd.progress !== undefined) { pSum += parseInt(sd.progress); pCnt++; }
     });
-
-    const avgPct = progCount ? Math.round(progSum / progCount) : 0;
+    const avg = pCnt ? Math.round(pSum/pCnt) : 0;
 
     document.getElementById('summaryBar').innerHTML = `
-        <div class="summary-stat"><div class="big">${totalWorkers}</div><div class="lbl">Total Workers</div></div>
-        <div class="summary-stat"><div class="big">${sectionsLogged}/${SECTIONS.length}</div><div class="lbl">Sections Logged</div></div>
-        <div class="summary-stat"><div class="big">${avgPct}%</div><div class="lbl">Avg Progress</div></div>
+        <div class="summary-stat"><div class="big">${workers}</div><div class="lbl">Workers</div></div>
+        <div class="summary-stat"><div class="big">${logged}/${SECTIONS.length}</div><div class="lbl">Logged</div></div>
+        <div class="summary-stat"><div class="big">${avg}%</div><div class="lbl">Avg Progress</div></div>
         <div class="summary-stat">
-            <div class="big" style="color:${issueCount > 0 ? '#e74c3c' : '#27ae60'}">${issueCount}</div>
-            <div class="lbl">Open Issues</div>
+            <div class="big" style="color:${issues>0?'#e74c3c':'#27ae60'}">${issues}</div>
+            <div class="lbl">Issues</div>
         </div>`;
 
     document.getElementById('sectionGrid').innerHTML = `<div class="section-grid">${
@@ -575,44 +763,37 @@ function paintDashboard(dayData) {
             const sd = dayData[s];
             if (!sd) return `
                 <div class="section-card" style="border-left-color:#c8d3de;opacity:0.75">
-                    <h3>${s} <span class="badge-nodata">No Entry</span></h3>
-                    <div style="color:#ccc;text-align:center;padding:18px 0;font-size:0.88rem">Not logged today</div>
-                    <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="goToSection('${s}')">Log Entry</button>
+                    <h3>${s} <span class="badge badge-nodata">No Entry</span></h3>
+                    <div style="color:#ccc;text-align:center;padding:16px 0;font-size:0.88rem">Not logged today</div>
+                    <button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px"
+                        onclick="goToSection('${s}')">Tap to Log</button>
                 </div>`;
-
-            const pct = parseInt(sd.progress || 0);
-            const hasIssue = sd.issues && sd.issues.trim();
+            const pct = parseInt(sd.progress||0);
+            const hi  = sd.issues && sd.issues.trim();
             return `
                 <div class="section-card">
-                    <h3>${s} <span class="${hasIssue ? 'badge-issue' : 'badge-clear'}">${hasIssue ? 'Issue' : 'Clear'}</span></h3>
-                    <div class="stat-row">
-                        <span class="stat-label">Workers</span>
-                        <span class="stat-value">${sd.workers || 0}</span>
-                    </div>
-                    <div class="stat-row" style="flex-direction:column;align-items:stretch;gap:6px">
+                    <h3>${s} <span class="badge ${hi?'badge-issue':'badge-clear'}">${hi?'Issue':'Clear'}</span></h3>
+                    <div class="stat-row"><span class="stat-label">Workers</span><span class="stat-value">${sd.workers||0}</span></div>
+                    <div class="stat-row" style="flex-direction:column;align-items:stretch;gap:4px">
                         <div style="display:flex;justify-content:space-between">
-                            <span class="stat-label" style="width:auto">Progress</span>
+                            <span class="stat-label" style="min-width:auto">Progress</span>
                             <span class="stat-value">${pct}%</span>
                         </div>
                         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
                     </div>
-                    ${sd.progressNote ? `<div class="stat-row" style="margin-top:4px"><span style="color:#888;font-size:0.83rem;font-style:italic">${truncate(sd.progressNote,65)}</span></div>` : ''}
-                    ${sd.materials ? `<div class="stat-row"><span class="stat-label">Materials</span><span class="stat-value" style="font-size:0.83rem">${truncate(sd.materials,50)}</span></div>` : ''}
-                    ${hasIssue ? `<div class="stat-row"><span class="stat-label" style="color:#e74c3c">Issue</span><span class="stat-value" style="color:#e74c3c;font-size:0.83rem">${truncate(sd.issues,55)}</span></div>` : ''}
+                    ${sd.progressNote?`<div class="stat-row"><span style="color:#888;font-size:0.82rem;font-style:italic">${trunc(sd.progressNote,65)}</span></div>`:''}
+                    ${sd.materials?`<div class="stat-row"><span class="stat-label">Materials</span><span class="stat-value" style="font-size:0.82rem">${trunc(sd.materials,50)}</span></div>`:''}
+                    ${hi?`<div class="stat-row"><span class="stat-label" style="color:#e74c3c">Issue</span><span class="stat-value" style="color:#e74c3c;font-size:0.82rem">${trunc(sd.issues,55)}</span></div>`:''}
                 </div>`;
         }).join('')
     }</div>`;
 }
 
-function goToSection(sectionName) {
-    currentSection = sectionName;
-    showTab('logentry');
-}
+function goToSection(s) { currentSection = s; showTab('logentry'); }
 
 // ═══════════════════════════════════════════════════════════
 //  LOG ENTRY
 // ═══════════════════════════════════════════════════════════
-
 let currentSection = SECTIONS[0];
 let entryDate = todayKey();
 let currentDayData = {};
@@ -622,270 +803,264 @@ function setToday() {
     document.getElementById('entryDate').value = entryDate;
     loadEntryDate();
 }
-
 function onDateChange() {
     entryDate = document.getElementById('entryDate').value || todayKey();
     loadEntryDate();
 }
-
 async function renderLogEntry() {
     document.getElementById('entryDate').value = entryDate;
     await loadEntryDate();
 }
-
 async function loadEntryDate() {
-    document.getElementById('sectionForm').innerHTML = loading();
-    currentDayData = await getDayData(entryDate);
+    document.getElementById('sectionForm').innerHTML = loadingHTML();
+    try {
+        currentDayData = await getDayData(entryDate);
+        setConn(true);
+    } catch(e) {
+        setConn(false);
+        currentDayData = {};
+    }
     renderSectionTabs();
     renderForm();
 }
-
 function renderSectionTabs() {
     document.getElementById('sectionTabs').innerHTML = SECTIONS.map(s => {
         const hasData = !!currentDayData[s];
-        return `<button class="section-tab${s === currentSection ? ' active' : ''}${hasData ? ' has-data' : ''}"
+        return `<button class="section-tab${s===currentSection?' active':''}${hasData?' has-data':''}"
             onclick="switchSection('${s}')">${s}</button>`;
     }).join('');
 }
-
-function switchSection(s) {
-    currentSection = s;
-    renderSectionTabs();
-    renderForm();
-}
+function switchSection(s) { currentSection = s; renderSectionTabs(); renderForm(); }
 
 function renderForm() {
-    const sd = currentDayData[currentSection] || {};
+    const sd  = currentDayData[currentSection] || {};
     const pct = sd.progress !== undefined ? parseInt(sd.progress) : 0;
-
     document.getElementById('sectionForm').innerHTML = `
-        <h3 style="color:#1a3c5e;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #f0f3f7">
-            ${currentSection} &mdash; ${fmtDate(entryDate)}
-        </h3>
+        <h3>${currentSection} — ${fmtDate(entryDate)}</h3>
+
         <div class="form-group">
-            <label>Workers Present</label>
-            <input type="number" id="f-workers" min="0" value="${sd.workers || ''}" placeholder="Number of workers on site today">
+            <label>👷 Workers Present</label>
+            <input type="number" id="f-workers" inputmode="numeric" min="0"
+                value="${sd.workers||''}" placeholder="Number of workers on site">
         </div>
+
         <div class="form-group">
-            <label>Work Progress &mdash; Overall % Complete</label>
+            <label>📈 Work Progress — ${pct}% complete</label>
             <div class="progress-input-row">
                 <input type="range" id="f-progress" min="0" max="100" value="${pct}"
-                    oninput="document.getElementById('pct').textContent = this.value + '%'">
+                    oninput="updatePct(this.value)">
                 <span class="pct-display" id="pct">${pct}%</span>
             </div>
+            <div class="progress-bar" style="margin-top:10px">
+                <div class="progress-fill" id="pct-bar" style="width:${pct}%"></div>
+            </div>
         </div>
+
         <div class="form-group">
-            <label>Progress Notes</label>
-            <textarea id="f-progressNote" placeholder="Describe work carried out today…">${sd.progressNote || ''}</textarea>
+            <label>📝 Progress Notes</label>
+            <textarea id="f-progressNote"
+                placeholder="Describe work done today…">${sd.progressNote||''}</textarea>
         </div>
+
         <div class="form-group">
-            <label>Materials Used</label>
-            <textarea id="f-materials" placeholder="e.g. Cement: 50 bags, Steel rods: 2 tons, Bricks: 500 nos…">${sd.materials || ''}</textarea>
+            <label>🧱 Materials Used</label>
+            <textarea id="f-materials"
+                placeholder="e.g. Cement: 50 bags, Steel: 2 tons…">${sd.materials||''}</textarea>
         </div>
+
         <div class="form-group">
-            <label>Issues / Remarks</label>
-            <textarea id="f-issues" placeholder="Any delays, safety concerns, equipment problems, or general remarks…">${sd.issues || ''}</textarea>
+            <label>⚠️ Issues / Remarks</label>
+            <textarea id="f-issues"
+                placeholder="Delays, safety concerns, equipment problems…">${sd.issues||''}</textarea>
         </div>
+
         <div class="form-actions">
-            <button class="btn btn-primary" id="saveBtn" onclick="saveSection()">Save</button>
-            <button class="btn btn-success" id="saveNextBtn" onclick="saveAndNext()">Save &amp; Next</button>
+            <button class="btn btn-primary" id="saveBtn" onclick="saveSection()">💾 Save</button>
+            <button class="btn btn-success" id="nextBtn" onclick="saveAndNext()">Save &amp; Next ➜</button>
             <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
         </div>`;
 }
 
+function updatePct(v) {
+    document.getElementById('pct').textContent = v + '%';
+    document.getElementById('pct-bar').style.width = v + '%';
+    // update label
+    document.querySelector('#sectionForm .form-group:nth-child(2) label').textContent =
+        `📈 Work Progress — ${v}% complete`;
+}
+
 function collectFormData() {
     return {
-        workers: document.getElementById('f-workers').value.trim(),
-        progress: document.getElementById('f-progress').value,
+        workers:      document.getElementById('f-workers').value.trim(),
+        progress:     document.getElementById('f-progress').value,
         progressNote: document.getElementById('f-progressNote').value.trim(),
-        materials: document.getElementById('f-materials').value.trim(),
-        issues: document.getElementById('f-issues').value.trim(),
-        savedAt: new Date().toISOString()
+        materials:    document.getElementById('f-materials').value.trim(),
+        issues:       document.getElementById('f-issues').value.trim(),
+        savedAt:      new Date().toISOString()
     };
 }
 
 async function saveSection() {
-    const saveBtn = document.getElementById('saveBtn');
-    const nextBtn = document.getElementById('saveNextBtn');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
-    if (nextBtn) nextBtn.disabled = true;
-
+    const sb = document.getElementById('saveBtn');
+    const nb = document.getElementById('nextBtn');
+    if (sb) { sb.disabled = true; sb.textContent = 'Saving…'; }
+    if (nb) nb.disabled = true;
     try {
         const entry = collectFormData();
         await saveSectionToDb(entryDate, currentSection, entry);
         currentDayData[currentSection] = entry;
+        setConn(true);
         renderSectionTabs();
-        showToast(`${currentSection} saved for ${fmtDate(entryDate)}`);
-    } catch (e) {
-        showToast('Failed to save. Check your connection.', true);
+        showToast(`✅ ${currentSection} saved`);
+    } catch(e) {
+        setConn(false);
+        showToast('❌ Save failed — check connection', true);
     } finally {
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
-        if (nextBtn) nextBtn.disabled = false;
+        if (sb) { sb.disabled = false; sb.textContent = '💾 Save'; }
+        if (nb) nb.disabled = false;
     }
 }
 
 async function saveAndNext() {
     await saveSection();
     const idx = SECTIONS.indexOf(currentSection);
-    if (idx < SECTIONS.length - 1) {
-        switchSection(SECTIONS[idx + 1]);
-    } else {
-        showToast('All sections saved! ✓');
-    }
+    if (idx < SECTIONS.length - 1) switchSection(SECTIONS[idx+1]);
+    else showToast('🎉 All sections saved!');
 }
 
 function clearForm() {
-    document.getElementById('f-workers').value = '';
-    document.getElementById('f-progress').value = 0;
-    document.getElementById('pct').textContent = '0%';
-    document.getElementById('f-progressNote').value = '';
-    document.getElementById('f-materials').value = '';
-    document.getElementById('f-issues').value = '';
+    ['f-workers','f-progressNote','f-materials','f-issues'].forEach(id => {
+        const el = document.getElementById(id); if(el) el.value = '';
+    });
+    const r = document.getElementById('f-progress');
+    if (r) { r.value = 0; updatePct(0); }
 }
 
 // ═══════════════════════════════════════════════════════════
 //  HISTORY
 // ═══════════════════════════════════════════════════════════
-
 async function renderHistory() {
-    document.getElementById('historyList').innerHTML = loading();
+    document.getElementById('historyList').innerHTML = loadingHTML();
     try {
         const records = await getAllDates();
+        setConn(true);
         if (!records.length) {
-            document.getElementById('historyList').innerHTML = `
-                <div class="empty-state"><div class="icon">📋</div><p>No records found. Start by logging your first daily entry.</p></div>`;
+            document.getElementById('historyList').innerHTML =
+                `<div class="empty-state"><div class="icon">📋</div><p>No records yet.</p></div>`;
             return;
         }
-        document.getElementById('historyList').innerHTML = records.map(({ id: dk, data: dayData }) => {
-            const logged = Object.keys(dayData).length;
-            let workers = 0, issues = 0, progSum = 0, progCount = 0;
-            Object.values(dayData).forEach(sd => {
-                workers += parseInt(sd.workers || 0);
-                if (sd.issues && sd.issues.trim()) issues++;
-                if (sd.progress !== undefined) { progSum += parseInt(sd.progress); progCount++; }
+        document.getElementById('historyList').innerHTML = records.map(({id:dk, data:dd}) => {
+            const logged = Object.keys(dd).length;
+            let w=0, iss=0, ps=0, pc=0;
+            Object.values(dd).forEach(sd => {
+                w   += parseInt(sd.workers||0);
+                if (sd.issues && sd.issues.trim()) iss++;
+                if (sd.progress !== undefined) { ps += parseInt(sd.progress); pc++; }
             });
-            const avg = progCount ? Math.round(progSum / progCount) : 0;
+            const avg = pc ? Math.round(ps/pc) : 0;
             return `
                 <div class="history-item" onclick="showDayDetail('${dk}')">
                     <div>
                         <div class="history-date">${fmtDate(dk)}</div>
-                        <div class="history-meta">${logged}/${SECTIONS.length} sections logged</div>
+                        <div class="history-meta">${logged}/${SECTIONS.length} sections</div>
                     </div>
                     <div class="history-summary">
-                        <div class="h-stat"><div class="num">${workers}</div><div class="lbl">Workers</div></div>
-                        <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Avg Progress</div></div>
+                        <div class="h-stat"><div class="num">${w}</div><div class="lbl">Workers</div></div>
+                        <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Progress</div></div>
                         <div class="h-stat">
-                            <div class="num" style="color:${issues > 0 ? '#e74c3c' : '#27ae60'}">${issues}</div>
+                            <div class="num" style="color:${iss>0?'#e74c3c':'#27ae60'}">${iss}</div>
                             <div class="lbl">Issues</div>
                         </div>
                     </div>
                 </div>`;
         }).join('');
-    } catch (e) {
+    } catch(e) {
+        setConn(false);
         document.getElementById('historyList').innerHTML =
-            `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load history. Check your internet connection.</p></div>`;
+            `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load. Check connection.</p></div>`;
     }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  MODAL — DAY DETAIL
+//  MODAL
 // ═══════════════════════════════════════════════════════════
-
 async function showDayDetail(dateKey) {
-    document.getElementById('modalTitle').textContent = `Activity Report — ${fmtDate(dateKey)}`;
-    document.getElementById('modalBody').innerHTML = loading();
+    document.getElementById('modalTitle').textContent = fmtDate(dateKey);
+    document.getElementById('modalBody').innerHTML = loadingHTML();
     document.getElementById('modalActions').innerHTML = '';
     document.getElementById('modalOverlay').classList.add('open');
 
-    const dayData = await getDayData(dateKey);
+    const dd = await getDayData(dateKey);
     let html = '';
     SECTIONS.forEach(s => {
-        const sd = dayData[s];
-        if (!sd) return;
-        const pct = parseInt(sd.progress || 0);
+        const sd = dd[s]; if (!sd) return;
+        const pct = parseInt(sd.progress||0);
         html += `
             <div class="modal-section">
                 <h4>${s}</h4>
                 <table class="detail-table">
-                    <colgroup><col style="width:140px"><col></colgroup>
                     <thead><tr><th>Field</th><th>Value</th></tr></thead>
                     <tbody>
-                        <tr><td>Workers Present</td><td><strong>${sd.workers || '—'}</strong></td></tr>
+                        <tr><td>Workers</td><td><strong>${sd.workers||'—'}</strong></td></tr>
                         <tr><td>Progress</td><td>
                             <div style="display:flex;align-items:center;gap:10px">
-                                <div class="progress-bar" style="width:100px;height:8px">
+                                <div class="progress-bar" style="width:90px;height:8px">
                                     <div class="progress-fill" style="width:${pct}%"></div>
                                 </div>
                                 <strong>${pct}%</strong>
                             </div>
                         </td></tr>
-                        ${sd.progressNote ? `<tr><td>Progress Notes</td><td>${sd.progressNote}</td></tr>` : ''}
-                        ${sd.materials ? `<tr><td>Materials Used</td><td>${sd.materials}</td></tr>` : ''}
+                        ${sd.progressNote?`<tr><td>Notes</td><td>${sd.progressNote}</td></tr>`:''}
+                        ${sd.materials?`<tr><td>Materials</td><td>${sd.materials}</td></tr>`:''}
                         <tr>
-                            <td style="color:${sd.issues && sd.issues.trim() ? '#e74c3c' : '#27ae60'}">Issues</td>
-                            <td style="color:${sd.issues && sd.issues.trim() ? '#e74c3c' : '#27ae60'}">
-                                ${sd.issues && sd.issues.trim() ? sd.issues : 'None'}
+                            <td style="color:${sd.issues&&sd.issues.trim()?'#e74c3c':'#27ae60'}">Issues</td>
+                            <td style="color:${sd.issues&&sd.issues.trim()?'#e74c3c':'#27ae60'}">
+                                ${sd.issues&&sd.issues.trim()?sd.issues:'None'}
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>`;
     });
-
-    if (!html) html = `<div class="empty-state"><p>No section data logged for this date.</p></div>`;
+    if (!html) html = `<div class="empty-state"><p>No data for this date.</p></div>`;
     document.getElementById('modalBody').innerHTML = html;
     document.getElementById('modalActions').innerHTML = `
-        <button class="btn btn-secondary btn-sm" onclick="editDayEntry('${dateKey}')">Edit Entry</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDeleteDay('${dateKey}')">Delete Record</button>`;
+        <button class="btn btn-secondary btn-sm" onclick="editDay('${dateKey}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete('${dateKey}')">Delete</button>`;
 }
 
-function closeModal() {
-    document.getElementById('modalOverlay').classList.remove('open');
-}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target===document.getElementById('modalOverlay')) closeModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
 
-document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === document.getElementById('modalOverlay')) closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+function editDay(dk) { closeModal(); entryDate=dk; currentSection=SECTIONS[0]; showTab('logentry'); }
 
-function editDayEntry(dateKey) {
-    closeModal();
-    entryDate = dateKey;
-    currentSection = SECTIONS[0];
-    showTab('logentry');
-}
-
-async function confirmDeleteDay(dateKey) {
-    if (!confirm(`Delete all entries for ${fmtDate(dateKey)}? This cannot be undone.`)) return;
+async function confirmDelete(dk) {
+    if (!confirm(`Delete all entries for ${fmtDate(dk)}?`)) return;
     try {
-        await deleteDayFromDb(dateKey);
-        closeModal();
-        renderHistory();
-        showToast(`Record for ${fmtDate(dateKey)} deleted`);
-    } catch (e) {
-        showToast('Delete failed. Check your connection.', true);
-    }
+        await deleteDayFromDb(dk);
+        closeModal(); renderHistory();
+        showToast(`Deleted ${fmtDate(dk)}`);
+    } catch(e) { showToast('Delete failed', true); }
 }
 
 // ═══════════════════════════════════════════════════════════
 //  TOAST
 // ═══════════════════════════════════════════════════════════
-
-let toastTimer = null;
-function showToast(msg, isError = false) {
+let toastTmr;
+function showToast(msg, err=false) {
     const t = document.getElementById('toast');
     t.textContent = msg;
-    t.className = 'toast show' + (isError ? ' error' : '');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.className = 'toast'; }, 3200);
+    t.className = 'toast show' + (err?' error':'');
+    clearTimeout(toastTmr);
+    toastTmr = setTimeout(() => { t.className = 'toast'; }, 3000);
 }
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════
-
-(function init() {
-    document.getElementById('headerDate').textContent = fmtDate(todayKey());
-    renderDashboard();
-})();
+document.getElementById('headerDate').textContent = fmtDate(todayKey());
+renderDashboard();
 </script>
 </body>
 </html>
