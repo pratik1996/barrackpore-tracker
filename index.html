@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barrackpore Site Activity Tracker</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            background: linear-gradient(135deg, #1a3c5e 0%, #2d6a9f 100%);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.4px; }
+        header .subtitle { font-size: 0.82rem; opacity: 0.75; margin-top: 3px; }
+        .date-badge {
+            background: rgba(255,255,255,0.15);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* ── Navigation ── */
+        nav {
+            background: white;
+            border-bottom: 2px solid #e0e6ee;
+            display: flex;
+            padding: 0 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        nav button {
+            padding: 14px 26px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.93rem;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        nav button:hover { color: #1a3c5e; }
+        nav button.active { color: #1a3c5e; border-bottom-color: #f39c12; }
+
+        /* ── Layout ── */
+        main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .page-header h2 { font-size: 1.25rem; color: #1a3c5e; }
+        .page-subtext { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
+
+        /* ── Summary bar ── */
+        .summary-bar {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .summary-stat {
+            background: white;
+            border-radius: 10px;
+            padding: 14px 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+            flex: 1;
+            min-width: 110px;
+            text-align: center;
+        }
+        .summary-stat .big { font-size: 1.9rem; font-weight: 700; color: #1a3c5e; }
+        .summary-stat .lbl { font-size: 0.78rem; color: #999; margin-top: 4px; }
+
+        /* ── Section cards (dashboard) ── */
+        .section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+            gap: 18px;
+        }
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #1a3c5e;
+            transition: transform 0.18s, box-shadow 0.18s;
+        }
+        .section-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+        .section-card h3 {
+            font-size: 1.05rem;
+            color: #1a3c5e;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-row { display: flex; align-items: center; margin-bottom: 9px; font-size: 0.88rem; }
+        .stat-label { color: #888; width: 110px; flex-shrink: 0; }
+        .stat-value { font-weight: 600; color: #333; }
+
+        .progress-bar { width: 100%; height: 8px; background: #e8edf2; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #1a3c5e, #2d6a9f); border-radius: 4px; transition: width 0.3s; }
+
+        .badge-issue { background: #e74c3c; color: white; padding: 2px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+        .badge-clear { background: #27ae60; color: white; padding: 2px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+        .badge-nodata { background: #bbb; color: white; padding: 2px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+
+        /* ── Section tabs (log entry) ── */
+        .section-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+        .section-tab {
+            padding: 8px 18px;
+            border: 2px solid #dce3ec;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.18s;
+            font-size: 0.9rem;
+        }
+        .section-tab:hover { border-color: #1a3c5e; color: #1a3c5e; }
+        .section-tab.active { background: #1a3c5e; color: white; border-color: #1a3c5e; }
+        .section-tab.has-data::after { content: ' ✓'; color: #f39c12; }
+        .section-tab.active.has-data::after { color: #f8d06c; }
+
+        /* ── Form ── */
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-weight: 600; color: #444; margin-bottom: 7px; font-size: 0.88rem; }
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #dce3ec;
+            border-radius: 8px;
+            font-size: 0.93rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+            background: #fafbfc;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus { outline: none; border-color: #1a3c5e; background: white; }
+        .form-group textarea { resize: vertical; min-height: 78px; }
+
+        .progress-input-row { display: flex; align-items: center; gap: 16px; }
+        .progress-input-row input[type="range"] { flex: 1; height: 6px; accent-color: #1a3c5e; cursor: pointer; }
+        .pct-display { font-weight: 700; color: #1a3c5e; font-size: 1.1rem; min-width: 50px; text-align: right; }
+
+        .form-actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+        .date-selector-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 18px;
+            background: white;
+            padding: 14px 18px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            flex-wrap: wrap;
+        }
+        .date-selector-row label { font-weight: 600; color: #444; font-size: 0.9rem; }
+        .date-selector-row input[type="date"] { width: auto; }
+
+        /* ── Buttons ── */
+        .btn { border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 0.92rem; font-weight: 600; transition: all 0.18s; }
+        .btn-primary { background: #1a3c5e; color: white; }
+        .btn-primary:hover { background: #2d6a9f; }
+        .btn-secondary { background: white; color: #555; border: 2px solid #dce3ec; }
+        .btn-secondary:hover { border-color: #999; color: #333; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-success:hover { background: #219a52; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-sm { padding: 7px 14px; font-size: 0.82rem; }
+
+        /* ── History ── */
+        .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+        .history-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-left: 4px solid #1a3c5e;
+            transition: all 0.18s;
+        }
+        .history-item:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); transform: translateX(3px); }
+        .history-date { font-weight: 700; color: #1a3c5e; font-size: 1rem; }
+        .history-meta { color: #999; font-size: 0.82rem; margin-top: 3px; }
+        .history-summary { display: flex; gap: 18px; }
+        .h-stat { text-align: center; }
+        .h-stat .num { font-weight: 700; color: #1a3c5e; font-size: 1.15rem; }
+        .h-stat .lbl { font-size: 0.72rem; color: #aaa; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 720px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid #f0f3f7;
+        }
+        .modal-header h3 { color: #1a3c5e; font-size: 1.15rem; }
+        .modal-close { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: #bbb; line-height: 1; }
+        .modal-close:hover { color: #555; }
+
+        .modal-section { margin-bottom: 22px; }
+        .modal-section h4 {
+            color: #1a3c5e;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eef1f6;
+        }
+        .detail-table { width: 100%; border-collapse: collapse; }
+        .detail-table th {
+            background: #f5f7fb;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 0.82rem;
+            color: #666;
+            border-bottom: 2px solid #e0e6ee;
+        }
+        .detail-table td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #f0f3f7;
+            font-size: 0.88rem;
+            vertical-align: top;
+        }
+        .detail-table tr:last-child td { border-bottom: none; }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 2px solid #f0f3f7; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px; right: 24px;
+            background: #27ae60;
+            color: white;
+            padding: 13px 22px;
+            border-radius: 8px;
+            font-weight: 500;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.2);
+            transform: translateY(80px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            max-width: 320px;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { background: #e74c3c; }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #bbb;
+        }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-state p { font-size: 0.95rem; }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            main { padding: 14px; }
+            header { padding: 12px 16px; }
+            header h1 { font-size: 1.05rem; }
+            .section-grid { grid-template-columns: 1fr; }
+            .history-summary { display: none; }
+            .summary-bar { gap: 8px; }
+            .summary-stat { min-width: 80px; padding: 10px 12px; }
+            .summary-stat .big { font-size: 1.5rem; }
+            nav button { padding: 12px 14px; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>Barrackpore Site Activity Tracker</h1>
+        <div class="subtitle">Construction Site Daily Monitoring</div>
+    </div>
+    <div class="date-badge" id="headerDate"></div>
+</header>
+
+<nav>
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="logentry">Log Entry</button>
+    <button data-tab="history">History</button>
+</nav>
+
+<main>
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div class="page-header">
+            <h2>Today's Overview</h2>
+            <button class="btn btn-primary" onclick="showTab('logentry')">+ Log Entry</button>
+        </div>
+        <div class="page-subtext" id="dashboardDate"></div>
+        <div class="summary-bar" id="summaryBar"></div>
+        <div class="section-grid" id="sectionGrid"></div>
+    </div>
+
+    <!-- LOG ENTRY -->
+    <div id="tab-logentry" class="tab-content">
+        <div class="page-header">
+            <h2>Daily Log Entry</h2>
+        </div>
+        <div class="page-subtext">Select a section and fill in the day's activity details.</div>
+
+        <div class="date-selector-row">
+            <label for="entryDate">Date:</label>
+            <input type="date" id="entryDate" onchange="onDateChange()">
+            <button class="btn btn-secondary btn-sm" onclick="setToday()">Today</button>
+        </div>
+
+        <div class="section-tabs" id="sectionTabs"></div>
+        <div class="form-card" id="sectionForm"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="tab-history" class="tab-content">
+        <div class="page-header">
+            <h2>Activity History</h2>
+        </div>
+        <div class="page-subtext">All logged records. Click a date to view full details.</div>
+        <div class="history-list" id="historyList"></div>
+    </div>
+</main>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle"></h3>
+            <button class="modal-close" onclick="closeModal()">&#215;</button>
+        </div>
+        <div id="modalBody"></div>
+        <div class="modal-actions" id="modalActions"></div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════════
+
+const SECTIONS = ['Section A', 'Section B', 'Section C', 'Section D', 'Section E', 'Section F'];
+const STORAGE_KEY = 'bpore_tracker_v1';
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ═══════════════════════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════════════════════
+
+function getData() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch (e) { return {}; }
+}
+
+function saveData(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DATE UTILS
+// ═══════════════════════════════════════════════════════════
+
+function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function fmtDate(key) {
+    const [y, m, d] = key.split('-');
+    return `${parseInt(d)} ${MONTHS[parseInt(m) - 1]} ${y}`;
+}
+
+function truncate(str, len) {
+    if (!str) return '';
+    return str.length > len ? str.slice(0, len) + '…' : str;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.getElementById('tab-' + tabId).classList.add('active');
+
+    if (tabId === 'dashboard') renderDashboard();
+    if (tabId === 'logentry') renderLogEntry();
+    if (tabId === 'history') renderHistory();
+}
+
+document.querySelectorAll('nav button').forEach(btn => {
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════════
+
+function renderDashboard() {
+    const today = todayKey();
+    document.getElementById('dashboardDate').textContent = fmtDate(today);
+
+    const data = getData();
+    const dayData = data[today] || {};
+
+    let totalWorkers = 0, sectionsLogged = 0, issueCount = 0, progSum = 0, progCount = 0;
+
+    SECTIONS.forEach(s => {
+        const sd = dayData[s];
+        if (!sd) return;
+        sectionsLogged++;
+        totalWorkers += parseInt(sd.workers || 0);
+        if (sd.issues && sd.issues.trim()) issueCount++;
+        if (sd.progress !== undefined && sd.progress !== '') {
+            progSum += parseInt(sd.progress);
+            progCount++;
+        }
+    });
+
+    const avgPct = progCount ? Math.round(progSum / progCount) : 0;
+
+    document.getElementById('summaryBar').innerHTML = `
+        <div class="summary-stat">
+            <div class="big">${totalWorkers}</div>
+            <div class="lbl">Total Workers</div>
+        </div>
+        <div class="summary-stat">
+            <div class="big">${sectionsLogged}/${SECTIONS.length}</div>
+            <div class="lbl">Sections Logged</div>
+        </div>
+        <div class="summary-stat">
+            <div class="big">${avgPct}%</div>
+            <div class="lbl">Avg Progress</div>
+        </div>
+        <div class="summary-stat">
+            <div class="big" style="color:${issueCount > 0 ? '#e74c3c' : '#27ae60'}">${issueCount}</div>
+            <div class="lbl">Open Issues</div>
+        </div>
+    `;
+
+    document.getElementById('sectionGrid').innerHTML = SECTIONS.map(s => {
+        const sd = dayData[s];
+        if (!sd) {
+            return `
+                <div class="section-card" style="border-left-color:#c8d3de;opacity:0.75">
+                    <h3>${s} <span class="badge-nodata">No Entry</span></h3>
+                    <div style="color:#ccc;text-align:center;padding:18px 0;font-size:0.88rem">Not logged today</div>
+                    <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px"
+                        onclick="goToSection('${s}')">Log Entry</button>
+                </div>`;
+        }
+
+        const pct = parseInt(sd.progress || 0);
+        const hasIssue = sd.issues && sd.issues.trim();
+
+        return `
+            <div class="section-card">
+                <h3>${s}
+                    <span class="${hasIssue ? 'badge-issue' : 'badge-clear'}">${hasIssue ? 'Issue' : 'Clear'}</span>
+                </h3>
+                <div class="stat-row">
+                    <span class="stat-label">Workers</span>
+                    <span class="stat-value">${sd.workers || 0}</span>
+                </div>
+                <div class="stat-row" style="flex-direction:column;align-items:stretch;gap:6px">
+                    <div style="display:flex;justify-content:space-between">
+                        <span class="stat-label" style="width:auto">Progress</span>
+                        <span class="stat-value">${pct}%</span>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                </div>
+                ${sd.progressNote ? `<div class="stat-row" style="margin-top:4px">
+                    <span style="color:#888;font-size:0.83rem;font-style:italic">${truncate(sd.progressNote, 65)}</span>
+                </div>` : ''}
+                ${sd.materials ? `<div class="stat-row">
+                    <span class="stat-label">Materials</span>
+                    <span class="stat-value" style="font-size:0.83rem">${truncate(sd.materials, 50)}</span>
+                </div>` : ''}
+                ${hasIssue ? `<div class="stat-row">
+                    <span class="stat-label" style="color:#e74c3c">Issue</span>
+                    <span class="stat-value" style="color:#e74c3c;font-size:0.83rem">${truncate(sd.issues, 55)}</span>
+                </div>` : ''}
+            </div>`;
+    }).join('');
+}
+
+function goToSection(sectionName) {
+    currentSection = sectionName;
+    showTab('logentry');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LOG ENTRY
+// ═══════════════════════════════════════════════════════════
+
+let currentSection = SECTIONS[0];
+let entryDate = todayKey();
+
+function setToday() {
+    entryDate = todayKey();
+    document.getElementById('entryDate').value = entryDate;
+    renderSectionTabs();
+    renderForm();
+}
+
+function onDateChange() {
+    entryDate = document.getElementById('entryDate').value || todayKey();
+    renderSectionTabs();
+    renderForm();
+}
+
+function renderLogEntry() {
+    document.getElementById('entryDate').value = entryDate;
+    renderSectionTabs();
+    renderForm();
+}
+
+function renderSectionTabs() {
+    const data = getData();
+    const dayData = data[entryDate] || {};
+    document.getElementById('sectionTabs').innerHTML = SECTIONS.map(s => {
+        const hasData = !!dayData[s];
+        return `<button class="section-tab${s === currentSection ? ' active' : ''}${hasData ? ' has-data' : ''}"
+            onclick="switchSection('${s}')">${s}</button>`;
+    }).join('');
+}
+
+function switchSection(s) {
+    currentSection = s;
+    renderSectionTabs();
+    renderForm();
+}
+
+function renderForm() {
+    const data = getData();
+    const sd = (data[entryDate] || {})[currentSection] || {};
+    const pct = sd.progress !== undefined ? parseInt(sd.progress) : 0;
+
+    document.getElementById('sectionForm').innerHTML = `
+        <h3 style="color:#1a3c5e;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #f0f3f7">
+            ${currentSection} &mdash; ${fmtDate(entryDate)}
+        </h3>
+
+        <div class="form-group">
+            <label>Workers Present</label>
+            <input type="number" id="f-workers" min="0" value="${sd.workers || ''}"
+                placeholder="Number of workers on site today">
+        </div>
+
+        <div class="form-group">
+            <label>Work Progress &mdash; Overall % Complete</label>
+            <div class="progress-input-row">
+                <input type="range" id="f-progress" min="0" max="100" value="${pct}"
+                    oninput="document.getElementById('pct').textContent = this.value + '%'">
+                <span class="pct-display" id="pct">${pct}%</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Progress Notes</label>
+            <textarea id="f-progressNote" placeholder="Describe work carried out today (activities, milestones reached…)">${sd.progressNote || ''}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Materials Used</label>
+            <textarea id="f-materials" placeholder="e.g. Cement: 50 bags, Steel rods: 2 tons, Bricks: 500 nos…">${sd.materials || ''}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Issues / Remarks</label>
+            <textarea id="f-issues" placeholder="Any delays, safety concerns, equipment problems, or general remarks…">${sd.issues || ''}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveSection()">Save</button>
+            <button class="btn btn-success" onclick="saveAndNext()">Save &amp; Next</button>
+            <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
+        </div>`;
+}
+
+function collectFormData() {
+    return {
+        workers: document.getElementById('f-workers').value.trim(),
+        progress: document.getElementById('f-progress').value,
+        progressNote: document.getElementById('f-progressNote').value.trim(),
+        materials: document.getElementById('f-materials').value.trim(),
+        issues: document.getElementById('f-issues').value.trim(),
+        savedAt: new Date().toISOString()
+    };
+}
+
+function saveSection() {
+    const data = getData();
+    if (!data[entryDate]) data[entryDate] = {};
+    data[entryDate][currentSection] = collectFormData();
+    saveData(data);
+    renderSectionTabs();
+    showToast(`${currentSection} saved for ${fmtDate(entryDate)}`);
+}
+
+function saveAndNext() {
+    saveSection();
+    const idx = SECTIONS.indexOf(currentSection);
+    if (idx < SECTIONS.length - 1) {
+        switchSection(SECTIONS[idx + 1]);
+    } else {
+        showToast('All sections saved!', false);
+    }
+}
+
+function clearForm() {
+    document.getElementById('f-workers').value = '';
+    document.getElementById('f-progress').value = 0;
+    document.getElementById('pct').textContent = '0%';
+    document.getElementById('f-progressNote').value = '';
+    document.getElementById('f-materials').value = '';
+    document.getElementById('f-issues').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════
+
+function renderHistory() {
+    const data = getData();
+    const dates = Object.keys(data).sort().reverse();
+
+    if (!dates.length) {
+        document.getElementById('historyList').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">📋</div>
+                <p>No records found. Start by logging your first daily entry.</p>
+            </div>`;
+        return;
+    }
+
+    document.getElementById('historyList').innerHTML = dates.map(dk => {
+        const dayData = data[dk];
+        const logged = Object.keys(dayData).length;
+        let workers = 0, issues = 0, progSum = 0, progCount = 0;
+        Object.values(dayData).forEach(sd => {
+            workers += parseInt(sd.workers || 0);
+            if (sd.issues && sd.issues.trim()) issues++;
+            if (sd.progress !== undefined) { progSum += parseInt(sd.progress); progCount++; }
+        });
+        const avg = progCount ? Math.round(progSum / progCount) : 0;
+
+        return `
+            <div class="history-item" onclick="showDayDetail('${dk}')">
+                <div>
+                    <div class="history-date">${fmtDate(dk)}</div>
+                    <div class="history-meta">${logged}/${SECTIONS.length} sections logged</div>
+                </div>
+                <div class="history-summary">
+                    <div class="h-stat"><div class="num">${workers}</div><div class="lbl">Workers</div></div>
+                    <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Avg Progress</div></div>
+                    <div class="h-stat">
+                        <div class="num" style="color:${issues > 0 ? '#e74c3c' : '#27ae60'}">${issues}</div>
+                        <div class="lbl">Issues</div>
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL — DAY DETAIL
+// ═══════════════════════════════════════════════════════════
+
+let modalDate = null;
+
+function showDayDetail(dateKey) {
+    modalDate = dateKey;
+    const data = getData();
+    const dayData = data[dateKey] || {};
+
+    document.getElementById('modalTitle').textContent = `Activity Report — ${fmtDate(dateKey)}`;
+
+    let html = '';
+    SECTIONS.forEach(s => {
+        const sd = dayData[s];
+        if (!sd) return;
+        const pct = parseInt(sd.progress || 0);
+        html += `
+            <div class="modal-section">
+                <h4>${s}</h4>
+                <table class="detail-table">
+                    <colgroup><col style="width:140px"><col></colgroup>
+                    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+                    <tbody>
+                        <tr><td>Workers Present</td><td><strong>${sd.workers || '—'}</strong></td></tr>
+                        <tr><td>Progress</td><td>
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <div class="progress-bar" style="width:100px;height:8px">
+                                    <div class="progress-fill" style="width:${pct}%"></div>
+                                </div>
+                                <strong>${pct}%</strong>
+                            </div>
+                        </td></tr>
+                        ${sd.progressNote ? `<tr><td>Progress Notes</td><td>${sd.progressNote}</td></tr>` : ''}
+                        ${sd.materials ? `<tr><td>Materials Used</td><td>${sd.materials}</td></tr>` : ''}
+                        <tr>
+                            <td style="color:${sd.issues && sd.issues.trim() ? '#e74c3c' : '#27ae60'}">Issues</td>
+                            <td style="color:${sd.issues && sd.issues.trim() ? '#e74c3c' : '#27ae60'}">
+                                ${sd.issues && sd.issues.trim() ? sd.issues : 'None'}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>`;
+    });
+
+    if (!html) html = `<div class="empty-state"><p>No section data logged for this date.</p></div>`;
+
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalActions').innerHTML = `
+        <button class="btn btn-secondary btn-sm" onclick="editDayEntry('${dateKey}')">Edit Entry</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDeleteDay('${dateKey}')">Delete Record</button>
+    `;
+    document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    modalDate = null;
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+
+function editDayEntry(dateKey) {
+    closeModal();
+    entryDate = dateKey;
+    currentSection = SECTIONS[0];
+    showTab('logentry');
+}
+
+function confirmDeleteDay(dateKey) {
+    if (!confirm(`Delete all entries for ${fmtDate(dateKey)}? This cannot be undone.`)) return;
+    const data = getData();
+    delete data[dateKey];
+    saveData(data);
+    closeModal();
+    renderHistory();
+    showToast(`Record for ${fmtDate(dateKey)} deleted`, true);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════
+
+let toastTimer = null;
+
+function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 3200);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+
+(function init() {
+    document.getElementById('headerDate').textContent = fmtDate(todayKey());
+    renderDashboard();
+})();
+</script>
+</body>
+</html>
