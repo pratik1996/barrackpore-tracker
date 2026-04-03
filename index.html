@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barrackpore Site Activity Tracker</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -26,6 +31,7 @@
         }
         header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.4px; }
         header .subtitle { font-size: 0.82rem; opacity: 0.75; margin-top: 3px; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
         .date-badge {
             background: rgba(255,255,255,0.15);
             padding: 6px 16px;
@@ -34,6 +40,15 @@
             font-weight: 500;
             white-space: nowrap;
         }
+        .conn-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #f39c12;
+            display: inline-block;
+            transition: background 0.4s;
+        }
+        .conn-dot.online { background: #2ecc71; }
+        .conn-dot.offline { background: #e74c3c; }
 
         /* ── Navigation ── */
         nav {
@@ -71,6 +86,25 @@
         }
         .page-header h2 { font-size: 1.25rem; color: #1a3c5e; }
         .page-subtext { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
+
+        /* ── Loading ── */
+        .loading-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            flex-direction: column;
+            gap: 14px;
+            color: #999;
+        }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 4px solid #e0e6ee;
+            border-top-color: #1a3c5e;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ── Summary bar ── */
         .summary-bar {
@@ -190,14 +224,15 @@
 
         /* ── Buttons ── */
         .btn { border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 0.92rem; font-weight: 600; transition: all 0.18s; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background: #1a3c5e; color: white; }
-        .btn-primary:hover { background: #2d6a9f; }
+        .btn-primary:hover:not(:disabled) { background: #2d6a9f; }
         .btn-secondary { background: white; color: #555; border: 2px solid #dce3ec; }
-        .btn-secondary:hover { border-color: #999; color: #333; }
+        .btn-secondary:hover:not(:disabled) { border-color: #999; color: #333; }
         .btn-success { background: #27ae60; color: white; }
-        .btn-success:hover { background: #219a52; }
+        .btn-success:hover:not(:disabled) { background: #219a52; }
         .btn-danger { background: #e74c3c; color: white; }
-        .btn-danger:hover { background: #c0392b; }
+        .btn-danger:hover:not(:disabled) { background: #c0392b; }
         .btn-sm { padding: 7px 14px; font-size: 0.82rem; }
 
         /* ── History ── */
@@ -279,7 +314,6 @@
             vertical-align: top;
         }
         .detail-table tr:last-child td { border-bottom: none; }
-
         .modal-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 2px solid #f0f3f7; }
 
         /* ── Toast ── */
@@ -302,11 +336,7 @@
         .toast.error { background: #e74c3c; }
 
         /* ── Empty state ── */
-        .empty-state {
-            text-align: center;
-            padding: 50px 20px;
-            color: #bbb;
-        }
+        .empty-state { text-align: center; padding: 50px 20px; color: #bbb; }
         .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
         .empty-state p { font-size: 0.95rem; }
 
@@ -331,7 +361,10 @@
         <h1>Barrackpore Site Activity Tracker</h1>
         <div class="subtitle">Construction Site Daily Monitoring</div>
     </div>
-    <div class="date-badge" id="headerDate"></div>
+    <div class="header-right">
+        <span class="conn-dot" id="connDot" title="Connecting..."></span>
+        <div class="date-badge" id="headerDate"></div>
+    </div>
 </header>
 
 <nav>
@@ -349,31 +382,25 @@
         </div>
         <div class="page-subtext" id="dashboardDate"></div>
         <div class="summary-bar" id="summaryBar"></div>
-        <div class="section-grid" id="sectionGrid"></div>
+        <div id="sectionGrid"></div>
     </div>
 
     <!-- LOG ENTRY -->
     <div id="tab-logentry" class="tab-content">
-        <div class="page-header">
-            <h2>Daily Log Entry</h2>
-        </div>
+        <div class="page-header"><h2>Daily Log Entry</h2></div>
         <div class="page-subtext">Select a section and fill in the day's activity details.</div>
-
         <div class="date-selector-row">
             <label for="entryDate">Date:</label>
             <input type="date" id="entryDate" onchange="onDateChange()">
             <button class="btn btn-secondary btn-sm" onclick="setToday()">Today</button>
         </div>
-
         <div class="section-tabs" id="sectionTabs"></div>
         <div class="form-card" id="sectionForm"></div>
     </div>
 
     <!-- HISTORY -->
     <div id="tab-history" class="tab-content">
-        <div class="page-header">
-            <h2>Activity History</h2>
-        </div>
+        <div class="page-header"><h2>Activity History</h2></div>
         <div class="page-subtext">All logged records. Click a date to view full details.</div>
         <div class="history-list" id="historyList"></div>
     </div>
@@ -395,41 +422,46 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════
-//  CONSTANTS
+//  FIREBASE INIT
+// ═══════════════════════════════════════════════════════════
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCKydzZzozuPBiOVrDqKmAm8gIh084wavs",
+    authDomain: "barrackpore-tracker.firebaseapp.com",
+    projectId: "barrackpore-tracker",
+    storageBucket: "barrackpore-tracker.firebasestorage.app",
+    messagingSenderId: "882776908175",
+    appId: "1:882776908175:web:77028448411d3c853aabfa",
+    measurementId: "G-0QF4JM217B"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const COLLECTION = 'daily_logs';
+
+// Connection indicator
+db.enableNetwork().then(() => setConn(true)).catch(() => setConn(false));
+function setConn(online) {
+    const dot = document.getElementById('connDot');
+    dot.className = 'conn-dot ' + (online ? 'online' : 'offline');
+    dot.title = online ? 'Connected to database' : 'Offline';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONSTANTS & UTILS
 // ═══════════════════════════════════════════════════════════
 
 const SECTIONS = ['Section A', 'Section B', 'Section C', 'Section D', 'Section E', 'Section F'];
-const STORAGE_KEY = 'bpore_tracker_v1';
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-// ═══════════════════════════════════════════════════════════
-//  STORAGE
-// ═══════════════════════════════════════════════════════════
-
-function getData() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-    catch (e) { return {}; }
-}
-
-function saveData(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-// ═══════════════════════════════════════════════════════════
-//  DATE UTILS
-// ═══════════════════════════════════════════════════════════
 
 function todayKey() {
     const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function fmtDate(key) {
     const [y, m, d] = key.split('-');
-    return `${parseInt(d)} ${MONTHS[parseInt(m) - 1]} ${y}`;
+    return `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`;
 }
 
 function truncate(str, len) {
@@ -437,9 +469,42 @@ function truncate(str, len) {
     return str.length > len ? str.slice(0, len) + '…' : str;
 }
 
+function loading(html = '') {
+    return html || `<div class="loading-overlay"><div class="spinner"></div><span>Loading from database…</span></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FIRESTORE HELPERS
+// ═══════════════════════════════════════════════════════════
+
+async function getDayData(dateKey) {
+    const doc = await db.collection(COLLECTION).doc(dateKey).get();
+    return doc.exists ? doc.data() : {};
+}
+
+async function saveSectionToDb(dateKey, sectionName, sectionData) {
+    await db.collection(COLLECTION).doc(dateKey).set(
+        { [sectionName]: sectionData },
+        { merge: true }
+    );
+}
+
+async function deleteDayFromDb(dateKey) {
+    await db.collection(COLLECTION).doc(dateKey).delete();
+}
+
+async function getAllDates() {
+    const snap = await db.collection(COLLECTION)
+        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
+        .get();
+    return snap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+}
+
 // ═══════════════════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════════════════
+
+let dashboardUnsubscribe = null;
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -458,16 +523,31 @@ document.querySelectorAll('nav button').forEach(btn => {
 });
 
 // ═══════════════════════════════════════════════════════════
-//  DASHBOARD
+//  DASHBOARD  (real-time listener)
 // ═══════════════════════════════════════════════════════════
 
 function renderDashboard() {
     const today = todayKey();
     document.getElementById('dashboardDate').textContent = fmtDate(today);
+    document.getElementById('summaryBar').innerHTML = '';
+    document.getElementById('sectionGrid').innerHTML = loading();
 
-    const data = getData();
-    const dayData = data[today] || {};
+    // Unsubscribe any previous listener
+    if (dashboardUnsubscribe) { dashboardUnsubscribe(); dashboardUnsubscribe = null; }
 
+    // Real-time listener — updates automatically when anyone saves
+    dashboardUnsubscribe = db.collection(COLLECTION).doc(today)
+        .onSnapshot(doc => {
+            setConn(true);
+            paintDashboard(doc.exists ? doc.data() : {});
+        }, err => {
+            setConn(false);
+            document.getElementById('sectionGrid').innerHTML =
+                `<div class="empty-state"><div class="icon">⚠️</div><p>Could not connect to database. Check your internet connection.</p></div>`;
+        });
+}
+
+function paintDashboard(dayData) {
     let totalWorkers = 0, sectionsLogged = 0, issueCount = 0, progSum = 0, progCount = 0;
 
     SECTIONS.forEach(s => {
@@ -476,77 +556,52 @@ function renderDashboard() {
         sectionsLogged++;
         totalWorkers += parseInt(sd.workers || 0);
         if (sd.issues && sd.issues.trim()) issueCount++;
-        if (sd.progress !== undefined && sd.progress !== '') {
-            progSum += parseInt(sd.progress);
-            progCount++;
-        }
+        if (sd.progress !== undefined) { progSum += parseInt(sd.progress); progCount++; }
     });
 
     const avgPct = progCount ? Math.round(progSum / progCount) : 0;
 
     document.getElementById('summaryBar').innerHTML = `
-        <div class="summary-stat">
-            <div class="big">${totalWorkers}</div>
-            <div class="lbl">Total Workers</div>
-        </div>
-        <div class="summary-stat">
-            <div class="big">${sectionsLogged}/${SECTIONS.length}</div>
-            <div class="lbl">Sections Logged</div>
-        </div>
-        <div class="summary-stat">
-            <div class="big">${avgPct}%</div>
-            <div class="lbl">Avg Progress</div>
-        </div>
+        <div class="summary-stat"><div class="big">${totalWorkers}</div><div class="lbl">Total Workers</div></div>
+        <div class="summary-stat"><div class="big">${sectionsLogged}/${SECTIONS.length}</div><div class="lbl">Sections Logged</div></div>
+        <div class="summary-stat"><div class="big">${avgPct}%</div><div class="lbl">Avg Progress</div></div>
         <div class="summary-stat">
             <div class="big" style="color:${issueCount > 0 ? '#e74c3c' : '#27ae60'}">${issueCount}</div>
             <div class="lbl">Open Issues</div>
-        </div>
-    `;
+        </div>`;
 
-    document.getElementById('sectionGrid').innerHTML = SECTIONS.map(s => {
-        const sd = dayData[s];
-        if (!sd) {
-            return `
+    document.getElementById('sectionGrid').innerHTML = `<div class="section-grid">${
+        SECTIONS.map(s => {
+            const sd = dayData[s];
+            if (!sd) return `
                 <div class="section-card" style="border-left-color:#c8d3de;opacity:0.75">
                     <h3>${s} <span class="badge-nodata">No Entry</span></h3>
                     <div style="color:#ccc;text-align:center;padding:18px 0;font-size:0.88rem">Not logged today</div>
-                    <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px"
-                        onclick="goToSection('${s}')">Log Entry</button>
+                    <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="goToSection('${s}')">Log Entry</button>
                 </div>`;
-        }
 
-        const pct = parseInt(sd.progress || 0);
-        const hasIssue = sd.issues && sd.issues.trim();
-
-        return `
-            <div class="section-card">
-                <h3>${s}
-                    <span class="${hasIssue ? 'badge-issue' : 'badge-clear'}">${hasIssue ? 'Issue' : 'Clear'}</span>
-                </h3>
-                <div class="stat-row">
-                    <span class="stat-label">Workers</span>
-                    <span class="stat-value">${sd.workers || 0}</span>
-                </div>
-                <div class="stat-row" style="flex-direction:column;align-items:stretch;gap:6px">
-                    <div style="display:flex;justify-content:space-between">
-                        <span class="stat-label" style="width:auto">Progress</span>
-                        <span class="stat-value">${pct}%</span>
+            const pct = parseInt(sd.progress || 0);
+            const hasIssue = sd.issues && sd.issues.trim();
+            return `
+                <div class="section-card">
+                    <h3>${s} <span class="${hasIssue ? 'badge-issue' : 'badge-clear'}">${hasIssue ? 'Issue' : 'Clear'}</span></h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Workers</span>
+                        <span class="stat-value">${sd.workers || 0}</span>
                     </div>
-                    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-                </div>
-                ${sd.progressNote ? `<div class="stat-row" style="margin-top:4px">
-                    <span style="color:#888;font-size:0.83rem;font-style:italic">${truncate(sd.progressNote, 65)}</span>
-                </div>` : ''}
-                ${sd.materials ? `<div class="stat-row">
-                    <span class="stat-label">Materials</span>
-                    <span class="stat-value" style="font-size:0.83rem">${truncate(sd.materials, 50)}</span>
-                </div>` : ''}
-                ${hasIssue ? `<div class="stat-row">
-                    <span class="stat-label" style="color:#e74c3c">Issue</span>
-                    <span class="stat-value" style="color:#e74c3c;font-size:0.83rem">${truncate(sd.issues, 55)}</span>
-                </div>` : ''}
-            </div>`;
-    }).join('');
+                    <div class="stat-row" style="flex-direction:column;align-items:stretch;gap:6px">
+                        <div style="display:flex;justify-content:space-between">
+                            <span class="stat-label" style="width:auto">Progress</span>
+                            <span class="stat-value">${pct}%</span>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                    </div>
+                    ${sd.progressNote ? `<div class="stat-row" style="margin-top:4px"><span style="color:#888;font-size:0.83rem;font-style:italic">${truncate(sd.progressNote,65)}</span></div>` : ''}
+                    ${sd.materials ? `<div class="stat-row"><span class="stat-label">Materials</span><span class="stat-value" style="font-size:0.83rem">${truncate(sd.materials,50)}</span></div>` : ''}
+                    ${hasIssue ? `<div class="stat-row"><span class="stat-label" style="color:#e74c3c">Issue</span><span class="stat-value" style="color:#e74c3c;font-size:0.83rem">${truncate(sd.issues,55)}</span></div>` : ''}
+                </div>`;
+        }).join('')
+    }</div>`;
 }
 
 function goToSection(sectionName) {
@@ -560,31 +615,34 @@ function goToSection(sectionName) {
 
 let currentSection = SECTIONS[0];
 let entryDate = todayKey();
+let currentDayData = {};
 
 function setToday() {
     entryDate = todayKey();
     document.getElementById('entryDate').value = entryDate;
-    renderSectionTabs();
-    renderForm();
+    loadEntryDate();
 }
 
 function onDateChange() {
     entryDate = document.getElementById('entryDate').value || todayKey();
-    renderSectionTabs();
-    renderForm();
+    loadEntryDate();
 }
 
-function renderLogEntry() {
+async function renderLogEntry() {
     document.getElementById('entryDate').value = entryDate;
+    await loadEntryDate();
+}
+
+async function loadEntryDate() {
+    document.getElementById('sectionForm').innerHTML = loading();
+    currentDayData = await getDayData(entryDate);
     renderSectionTabs();
     renderForm();
 }
 
 function renderSectionTabs() {
-    const data = getData();
-    const dayData = data[entryDate] || {};
     document.getElementById('sectionTabs').innerHTML = SECTIONS.map(s => {
-        const hasData = !!dayData[s];
+        const hasData = !!currentDayData[s];
         return `<button class="section-tab${s === currentSection ? ' active' : ''}${hasData ? ' has-data' : ''}"
             onclick="switchSection('${s}')">${s}</button>`;
     }).join('');
@@ -597,21 +655,17 @@ function switchSection(s) {
 }
 
 function renderForm() {
-    const data = getData();
-    const sd = (data[entryDate] || {})[currentSection] || {};
+    const sd = currentDayData[currentSection] || {};
     const pct = sd.progress !== undefined ? parseInt(sd.progress) : 0;
 
     document.getElementById('sectionForm').innerHTML = `
         <h3 style="color:#1a3c5e;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #f0f3f7">
             ${currentSection} &mdash; ${fmtDate(entryDate)}
         </h3>
-
         <div class="form-group">
             <label>Workers Present</label>
-            <input type="number" id="f-workers" min="0" value="${sd.workers || ''}"
-                placeholder="Number of workers on site today">
+            <input type="number" id="f-workers" min="0" value="${sd.workers || ''}" placeholder="Number of workers on site today">
         </div>
-
         <div class="form-group">
             <label>Work Progress &mdash; Overall % Complete</label>
             <div class="progress-input-row">
@@ -620,25 +674,21 @@ function renderForm() {
                 <span class="pct-display" id="pct">${pct}%</span>
             </div>
         </div>
-
         <div class="form-group">
             <label>Progress Notes</label>
-            <textarea id="f-progressNote" placeholder="Describe work carried out today (activities, milestones reached…)">${sd.progressNote || ''}</textarea>
+            <textarea id="f-progressNote" placeholder="Describe work carried out today…">${sd.progressNote || ''}</textarea>
         </div>
-
         <div class="form-group">
             <label>Materials Used</label>
             <textarea id="f-materials" placeholder="e.g. Cement: 50 bags, Steel rods: 2 tons, Bricks: 500 nos…">${sd.materials || ''}</textarea>
         </div>
-
         <div class="form-group">
             <label>Issues / Remarks</label>
             <textarea id="f-issues" placeholder="Any delays, safety concerns, equipment problems, or general remarks…">${sd.issues || ''}</textarea>
         </div>
-
         <div class="form-actions">
-            <button class="btn btn-primary" onclick="saveSection()">Save</button>
-            <button class="btn btn-success" onclick="saveAndNext()">Save &amp; Next</button>
+            <button class="btn btn-primary" id="saveBtn" onclick="saveSection()">Save</button>
+            <button class="btn btn-success" id="saveNextBtn" onclick="saveAndNext()">Save &amp; Next</button>
             <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
         </div>`;
 }
@@ -654,22 +704,33 @@ function collectFormData() {
     };
 }
 
-function saveSection() {
-    const data = getData();
-    if (!data[entryDate]) data[entryDate] = {};
-    data[entryDate][currentSection] = collectFormData();
-    saveData(data);
-    renderSectionTabs();
-    showToast(`${currentSection} saved for ${fmtDate(entryDate)}`);
+async function saveSection() {
+    const saveBtn = document.getElementById('saveBtn');
+    const nextBtn = document.getElementById('saveNextBtn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    if (nextBtn) nextBtn.disabled = true;
+
+    try {
+        const entry = collectFormData();
+        await saveSectionToDb(entryDate, currentSection, entry);
+        currentDayData[currentSection] = entry;
+        renderSectionTabs();
+        showToast(`${currentSection} saved for ${fmtDate(entryDate)}`);
+    } catch (e) {
+        showToast('Failed to save. Check your connection.', true);
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+        if (nextBtn) nextBtn.disabled = false;
+    }
 }
 
-function saveAndNext() {
-    saveSection();
+async function saveAndNext() {
+    await saveSection();
     const idx = SECTIONS.indexOf(currentSection);
     if (idx < SECTIONS.length - 1) {
         switchSection(SECTIONS[idx + 1]);
     } else {
-        showToast('All sections saved!', false);
+        showToast('All sections saved! ✓');
     }
 }
 
@@ -686,61 +747,57 @@ function clearForm() {
 //  HISTORY
 // ═══════════════════════════════════════════════════════════
 
-function renderHistory() {
-    const data = getData();
-    const dates = Object.keys(data).sort().reverse();
-
-    if (!dates.length) {
-        document.getElementById('historyList').innerHTML = `
-            <div class="empty-state">
-                <div class="icon">📋</div>
-                <p>No records found. Start by logging your first daily entry.</p>
-            </div>`;
-        return;
-    }
-
-    document.getElementById('historyList').innerHTML = dates.map(dk => {
-        const dayData = data[dk];
-        const logged = Object.keys(dayData).length;
-        let workers = 0, issues = 0, progSum = 0, progCount = 0;
-        Object.values(dayData).forEach(sd => {
-            workers += parseInt(sd.workers || 0);
-            if (sd.issues && sd.issues.trim()) issues++;
-            if (sd.progress !== undefined) { progSum += parseInt(sd.progress); progCount++; }
-        });
-        const avg = progCount ? Math.round(progSum / progCount) : 0;
-
-        return `
-            <div class="history-item" onclick="showDayDetail('${dk}')">
-                <div>
-                    <div class="history-date">${fmtDate(dk)}</div>
-                    <div class="history-meta">${logged}/${SECTIONS.length} sections logged</div>
-                </div>
-                <div class="history-summary">
-                    <div class="h-stat"><div class="num">${workers}</div><div class="lbl">Workers</div></div>
-                    <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Avg Progress</div></div>
-                    <div class="h-stat">
-                        <div class="num" style="color:${issues > 0 ? '#e74c3c' : '#27ae60'}">${issues}</div>
-                        <div class="lbl">Issues</div>
+async function renderHistory() {
+    document.getElementById('historyList').innerHTML = loading();
+    try {
+        const records = await getAllDates();
+        if (!records.length) {
+            document.getElementById('historyList').innerHTML = `
+                <div class="empty-state"><div class="icon">📋</div><p>No records found. Start by logging your first daily entry.</p></div>`;
+            return;
+        }
+        document.getElementById('historyList').innerHTML = records.map(({ id: dk, data: dayData }) => {
+            const logged = Object.keys(dayData).length;
+            let workers = 0, issues = 0, progSum = 0, progCount = 0;
+            Object.values(dayData).forEach(sd => {
+                workers += parseInt(sd.workers || 0);
+                if (sd.issues && sd.issues.trim()) issues++;
+                if (sd.progress !== undefined) { progSum += parseInt(sd.progress); progCount++; }
+            });
+            const avg = progCount ? Math.round(progSum / progCount) : 0;
+            return `
+                <div class="history-item" onclick="showDayDetail('${dk}')">
+                    <div>
+                        <div class="history-date">${fmtDate(dk)}</div>
+                        <div class="history-meta">${logged}/${SECTIONS.length} sections logged</div>
                     </div>
-                </div>
-            </div>`;
-    }).join('');
+                    <div class="history-summary">
+                        <div class="h-stat"><div class="num">${workers}</div><div class="lbl">Workers</div></div>
+                        <div class="h-stat"><div class="num">${avg}%</div><div class="lbl">Avg Progress</div></div>
+                        <div class="h-stat">
+                            <div class="num" style="color:${issues > 0 ? '#e74c3c' : '#27ae60'}">${issues}</div>
+                            <div class="lbl">Issues</div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        document.getElementById('historyList').innerHTML =
+            `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load history. Check your internet connection.</p></div>`;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
 //  MODAL — DAY DETAIL
 // ═══════════════════════════════════════════════════════════
 
-let modalDate = null;
-
-function showDayDetail(dateKey) {
-    modalDate = dateKey;
-    const data = getData();
-    const dayData = data[dateKey] || {};
-
+async function showDayDetail(dateKey) {
     document.getElementById('modalTitle').textContent = `Activity Report — ${fmtDate(dateKey)}`;
+    document.getElementById('modalBody').innerHTML = loading();
+    document.getElementById('modalActions').innerHTML = '';
+    document.getElementById('modalOverlay').classList.add('open');
 
+    const dayData = await getDayData(dateKey);
     let html = '';
     SECTIONS.forEach(s => {
         const sd = dayData[s];
@@ -776,27 +833,18 @@ function showDayDetail(dateKey) {
     });
 
     if (!html) html = `<div class="empty-state"><p>No section data logged for this date.</p></div>`;
-
     document.getElementById('modalBody').innerHTML = html;
     document.getElementById('modalActions').innerHTML = `
         <button class="btn btn-secondary btn-sm" onclick="editDayEntry('${dateKey}')">Edit Entry</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDeleteDay('${dateKey}')">Delete Record</button>
-    `;
-    document.getElementById('modalOverlay').classList.add('open');
+        <button class="btn btn-danger btn-sm" onclick="confirmDeleteDay('${dateKey}')">Delete Record</button>`;
 }
 
 function closeModal() {
     document.getElementById('modalOverlay').classList.remove('open');
-    modalDate = null;
 }
 
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-});
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
-});
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === document.getElementById('modalOverlay')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 function editDayEntry(dateKey) {
     closeModal();
@@ -805,14 +853,16 @@ function editDayEntry(dateKey) {
     showTab('logentry');
 }
 
-function confirmDeleteDay(dateKey) {
+async function confirmDeleteDay(dateKey) {
     if (!confirm(`Delete all entries for ${fmtDate(dateKey)}? This cannot be undone.`)) return;
-    const data = getData();
-    delete data[dateKey];
-    saveData(data);
-    closeModal();
-    renderHistory();
-    showToast(`Record for ${fmtDate(dateKey)} deleted`, true);
+    try {
+        await deleteDayFromDb(dateKey);
+        closeModal();
+        renderHistory();
+        showToast(`Record for ${fmtDate(dateKey)} deleted`);
+    } catch (e) {
+        showToast('Delete failed. Check your connection.', true);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -820,7 +870,6 @@ function confirmDeleteDay(dateKey) {
 // ═══════════════════════════════════════════════════════════
 
 let toastTimer = null;
-
 function showToast(msg, isError = false) {
     const t = document.getElementById('toast');
     t.textContent = msg;
